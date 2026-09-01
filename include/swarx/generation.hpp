@@ -12,8 +12,10 @@ namespace swarx {
 
 struct GenerationConfig {
     std::size_t max_new_tokens = 32;
-    float temperature = 0.0f;          // <= 0 means greedy decoding.
-    float repetition_penalty = 1.0f;   // 1.0 disables the penalty.
+    float temperature = 0.0f;
+    std::size_t top_k = 0;
+    float top_p = 1.0f;
+    float repetition_penalty = 1.0f;
     std::uint32_t eos_token_id = 0;
     bool stop_on_eos = false;
     bool slide_context = true;
@@ -24,9 +26,11 @@ struct GenerationResult {
     std::size_t generated_tokens = 0;
     bool stopped_on_eos = false;
     bool hit_context_limit = false;
+    bool cancelled = false;
 };
 
 using TokenCallback = std::function<void(std::uint32_t token)>;
+using CancelCallback = std::function<bool()>;
 
 class Generator {
 public:
@@ -34,7 +38,8 @@ public:
 
     GenerationResult generate(std::vector<std::uint32_t> prompt,
                               GenerationConfig config = {},
-                              TokenCallback on_token = {}) const;
+                              TokenCallback on_token = {},
+                              CancelCallback should_cancel = {}) const;
 
 private:
     const TransformerModel& model_;
