@@ -21,6 +21,12 @@ public:
     // Runs one decoder-style transformer block over [sequence, hidden].
     Tensor forward(const Tensor& input) const;
 
+    const CausalSelfAttention& attention() const noexcept { return attention_; }
+    const Tensor& attention_norm_weight() const noexcept { return attention_norm_weight_; }
+    const Tensor& mlp_norm_weight() const noexcept { return mlp_norm_weight_; }
+    const Tensor& up_weight() const noexcept { return up_weight_; }
+    const Tensor& down_weight() const noexcept { return down_weight_; }
+
 private:
     TransformerConfig config_;
     CausalSelfAttention attention_;
