@@ -28,6 +28,7 @@ External models and online providers are optional adapters. They are replaceable
 - Controlled online information gateway
 - **Policy-aware intelligence source router**
 - **Central capability/tool registry**
+- **Structured intelligence bus for model/tool communication and provenance**
 - CMake build and automated CTest coverage
 - CLI smoke application
 
@@ -68,6 +69,27 @@ Volatile information should come from live sources instead of model memory. The 
 - TrendoraFinds — WordPress REST knowledge endpoint
 
 Additional source adapters are represented in the capability registry for web search, finance data and news. Those are intentionally disabled until a production-grade provider and permission model are selected.
+
+## Intelligence bus
+
+Models and tools communicate through structured envelopes rather than hidden free-form conversations. A request can produce observations, tool results, model responses, verification messages and a final response while retaining request IDs and source provenance.
+
+```text
+REQUEST
+   |
+   +--> TOOL / KNOWLEDGE OBSERVATION
+   |
+   +--> MODEL RESPONSE
+   |
+   +--> VERIFICATION
+   |
+   +--> FINAL RESPONSE
+
+Every message carries:
+request_id / sender / task / payload / capabilities / sources / confidence
+```
+
+This is the foundation for future multi-model orchestration without forcing one model provider to own the whole system.
 
 ## Capability security direction
 
@@ -110,7 +132,8 @@ SWARX Intelligence
 │   ├── serving
 │   ├── online
 │   ├── intelligence_router
-│   └── tool_registry
+│   ├── tool_registry
+│   └── intelligence_bus
 ├── models/
 │   ├── model adapters
 │   ├── identity
