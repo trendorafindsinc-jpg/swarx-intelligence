@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(swarx_intelligence VERSION 0.16.0 LANGUAGES CXX)
+project(swarx_intelligence VERSION 0.17.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -31,6 +31,8 @@ add_library(swarx_core
     src/runtime/serving.cpp
     src/runtime/web.cpp
     src/runtime/online.cpp
+    src/runtime/intelligence_router.cpp
+    src/runtime/tool_registry.cpp
 )
 
 target_include_directories(swarx_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -58,5 +60,9 @@ if(SWARX_BUILD_TESTS)
 
     add_executable(swarx-online-tests tests/online_smoke.cpp)
     target_link_libraries(swarx-online-tests PRIVATE swarx_core)
-    add_test(NAME swarx-online-tests COMMAND swarx-online-tests)
+    add_test(NAME swarx-online-tests COMMAND swarx_core)
+
+    add_executable(swarx-intelligence-tests tests/intelligence_router_smoke.cpp)
+    target_link_libraries(swarx-intelligence-tests PRIVATE swarx_core)
+    add_test(NAME swarx-intelligence-tests COMMAND swarx-intelligence-tests)
 endif()
