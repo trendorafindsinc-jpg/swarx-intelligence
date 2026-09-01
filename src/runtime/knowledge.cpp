@@ -5,6 +5,7 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <utility>
 
 namespace swarx {
 namespace {
@@ -21,11 +22,7 @@ std::string now_utc() {
     const auto now = std::chrono::system_clock::now();
     const auto tt = std::chrono::system_clock::to_time_t(now);
     std::tm tm{};
-#if defined(_WIN32)
-    gmtime_s(&tm, &tt);
-#else
     gmtime_r(&tt, &tm);
-#endif
     std::ostringstream out;
     out << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
     return out.str();
@@ -36,6 +33,9 @@ std::string now_utc() {
 KnowledgeFabric::KnowledgeFabric(KnowledgeFabricConfig config)
     : config_(std::move(config)), online_(config_.online) {
     sources_.push_back({"trendorafinds", "TrendoraFinds", config_.online.trendora_endpoint, 100, true, true});
+    sources_.push_back({"timeapi", "TimeAPI", config_.online.time_endpoint, 95, false, true});
+    sources_.push_back({"open-meteo", "Open-Meteo", config_.online.weather_endpoint, 95, false, true});
+    sources_.push_back({"wikipedia", "Wikipedia", config_.online.wikipedia_endpoint, 70, false, true});
 }
 
 KnowledgeDomain KnowledgeFabric::classify_domain(const std::string& text) const {
@@ -54,30 +54,54 @@ KnowledgeDomain KnowledgeFabric::classify_domain(const std::string& text) const 
 KnowledgeResult KnowledgeFabric::retrieve(const KnowledgeQuery& query) const {
     KnowledgeQuery normalized = query;
     if (normalized.domain == KnowledgeDomain::General) normalized.domain = classify_domain(query.text);
-    if (!config_.network_enabled) return {false, "network access disabled by policy", query.text, {}};
-    if (!config_.allow_external_sources && normalized.domain == KnowledgeDomain::General)
-        return retrieve_trendorafinds(normalized);
-    return retrieve_trendorafinds(normalized);
+    if (!config_.network_enabled) return {false, "network access disabled by policy", query.text, normalized.route, {}};
+
+    OnlineIntent intent = OnlineIntent::Trendora;
+    switch (normalized.route) {
+        case KnowledgeRoute::TrendoraFinds: intent = OnlineIntent::Trendora; break;
+        case KnowledgeRoute::Time: intent = OnlineIntent::Time; break;
+        case KnowledgeRoute::Weather: intent = OnlineIntent::Weather; break;
+        case KnowledgeRoute::GeneralWeb: intent = OnlineIntent::General; break;
+    }
+
+    if (!config_.allow_external_sources && normalized.route != KnowledgeRoute::TrendoraFinds) {
+        return {false, "external knowledge sources disabled by policy", query.text, normalized.route, {}};
+    }
+    return retrieve_online(normalized, intent);
 }
 
-KnowledgeResult KnowledgeFabric::retrieve_trendorafinds(const KnowledgeQuery& query) const {
+KnowledgeResult KnowledgeFabric::retrieve_online(const KnowledgeQuery& query, OnlineIntent intent) const {
     OnlineRequest request;
-    request.intent = OnlineIntent::Trendora;
+    request.intent = intent;
     request.query = query.text;
+    request.location = query.location;
+    request.latitude = query.latitude;
+    request.longitude = query.longitude;
+    request.timezone = query.timezone;
+
     const auto result = online_.fetch(request);
     KnowledgeResult out;
     out.query = query.text;
+    out.route = query.route;
     if (!result.success) {
         out.error = result.error;
         return out;
     }
+
     KnowledgeEvidence evidence;
     evidence.source_id = result.source.source_id;
     evidence.url = result.source.url;
     evidence.content = result.source.body;
     evidence.retrieved_at_utc = result.source.retrieved_at_utc.empty() ? now_utc() : result.source.retrieved_at_utc;
-    evidence.freshness = query.require_fresh ? Freshness::Recent : Freshness::Unknown;
-    evidence.reliability = 100;
+    evidence.reliability = result.source_id == "trendorafinds" ? 100 : 90;
+    evidence.freshness = (query.route == KnowledgeRoute::Time || query.route == KnowledgeRoute::Weather)
+                             ? Freshness::Live
+                             : (query.require_fresh ? Freshness::Recent : Freshness::Unknown);
+
+    if (config_.require_provenance && (evidence.source_id.empty() || evidence.url.empty())) {
+        out.error = "knowledge result missing required provenance";
+        return out;
+    }
     out.evidence.push_back(std::move(evidence));
     out.success = !out.evidence.empty();
     return out;
