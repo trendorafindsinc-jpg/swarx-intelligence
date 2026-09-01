@@ -1,5 +1,7 @@
 #include "swarx/knowledge.hpp"
 
+#include "swarx/source_adapters.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -31,7 +33,7 @@ std::string now_utc() {
 } // namespace
 
 KnowledgeFabric::KnowledgeFabric(KnowledgeFabricConfig config)
-    : config_(std::move(config)), online_(config_.online) {
+    : config_(std::move(config)), registry_(make_default_source_registry(config_.online)) {
     sources_.push_back({"trendorafinds", "TrendoraFinds", config_.online.trendora_endpoint, 100, true, true});
     sources_.push_back({"timeapi", "TimeAPI", config_.online.time_endpoint, 95, false, true});
     sources_.push_back({"open-meteo", "Open-Meteo", config_.online.weather_endpoint, 95, false, true});
@@ -51,49 +53,67 @@ KnowledgeDomain KnowledgeFabric::classify_domain(const std::string& text) const 
     return KnowledgeDomain::General;
 }
 
+KnowledgeRoute KnowledgeFabric::route_for_capability(SourceCapability capability) {
+    switch (capability) {
+        case SourceCapability::TrendoraFinds: return KnowledgeRoute::TrendoraFinds;
+        case SourceCapability::Time: return KnowledgeRoute::Time;
+        case SourceCapability::Weather: return KnowledgeRoute::Weather;
+        case SourceCapability::GeneralWeb: return KnowledgeRoute::GeneralWeb;
+    }
+    return KnowledgeRoute::GeneralWeb;
+}
+
 KnowledgeResult KnowledgeFabric::retrieve(const KnowledgeQuery& query) const {
     KnowledgeQuery normalized = query;
     if (normalized.domain == KnowledgeDomain::General) normalized.domain = classify_domain(query.text);
     if (!config_.network_enabled) return {false, "network access disabled by policy", query.text, normalized.route, {}};
 
-    OnlineIntent intent = OnlineIntent::Trendora;
+    SourceCapability capability = SourceCapability::TrendoraFinds;
     switch (normalized.route) {
-        case KnowledgeRoute::TrendoraFinds: intent = OnlineIntent::Trendora; break;
-        case KnowledgeRoute::Time: intent = OnlineIntent::Time; break;
-        case KnowledgeRoute::Weather: intent = OnlineIntent::Weather; break;
-        case KnowledgeRoute::GeneralWeb: intent = OnlineIntent::General; break;
+        case KnowledgeRoute::TrendoraFinds: capability = SourceCapability::TrendoraFinds; break;
+        case KnowledgeRoute::Time: capability = SourceCapability::Time; break;
+        case KnowledgeRoute::Weather: capability = SourceCapability::Weather; break;
+        case KnowledgeRoute::GeneralWeb: capability = SourceCapability::GeneralWeb; break;
     }
 
-    if (!config_.allow_external_sources && normalized.route != KnowledgeRoute::TrendoraFinds) {
+    if (!config_.allow_external_sources && capability != SourceCapability::TrendoraFinds) {
         return {false, "external knowledge sources disabled by policy", query.text, normalized.route, {}};
     }
-    return retrieve_online(normalized, intent);
+    return retrieve_online(normalized, capability);
 }
 
-KnowledgeResult KnowledgeFabric::retrieve_online(const KnowledgeQuery& query, OnlineIntent intent) const {
-    OnlineRequest request;
-    request.intent = intent;
+KnowledgeResult KnowledgeFabric::retrieve_online(const KnowledgeQuery& query, SourceCapability capability) const {
+    const auto source = registry_.find(capability);
+    KnowledgeResult out;
+    out.query = query.text;
+    out.route = route_for_capability(capability);
+
+    if (!source) {
+        out.error = "no registered source for requested capability";
+        return out;
+    }
+
+    SourceRequest request;
+    request.capability = capability;
     request.query = query.text;
     request.location = query.location;
     request.latitude = query.latitude;
     request.longitude = query.longitude;
     request.timezone = query.timezone;
+    request.policy.minimum_trust_score = config_.allow_external_sources ? 0.50 : 1.0;
 
-    const auto result = online_.fetch(request);
-    KnowledgeResult out;
-    out.query = query.text;
-    out.route = query.route;
+    const auto result = source->fetch(request);
     if (!result.success) {
-        out.error = result.error;
+        out.error = result.error.empty() ? "knowledge source request failed" : result.error;
         return out;
     }
 
     KnowledgeEvidence evidence;
-    evidence.source_id = result.source.source_id;
-    evidence.url = result.source.url;
-    evidence.content = result.source.body;
-    evidence.retrieved_at_utc = result.source.retrieved_at_utc.empty() ? now_utc() : result.source.retrieved_at_utc;
-    evidence.reliability = result.source_id == "trendorafinds" ? 100 : 90;
+    evidence.source_id = result.source_id;
+    evidence.url = result.url;
+    evidence.content = result.body;
+    evidence.retrieved_at_utc = result.evidence.retrieved_at_utc.empty() ? now_utc() : result.evidence.retrieved_at_utc;
+    evidence.reliability = static_cast<int>(result.evidence.trust_score * 100.0);
     evidence.freshness = (query.route == KnowledgeRoute::Time || query.route == KnowledgeRoute::Weather)
                              ? Freshness::Live
                              : (query.require_fresh ? Freshness::Recent : Freshness::Unknown);
@@ -102,6 +122,7 @@ KnowledgeResult KnowledgeFabric::retrieve_online(const KnowledgeQuery& query, On
         out.error = "knowledge result missing required provenance";
         return out;
     }
+
     out.evidence.push_back(std::move(evidence));
     out.success = !out.evidence.empty();
     return out;
