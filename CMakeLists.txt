@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(swarx_intelligence VERSION 0.19.0 LANGUAGES CXX)
+project(swarx_intelligence VERSION 0.20.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -31,6 +31,7 @@ add_library(swarx_core
     src/runtime/serving.cpp
     src/runtime/web.cpp
     src/runtime/online.cpp
+    src/runtime/source_trust.cpp
     src/runtime/intelligence_router.cpp
     src/runtime/tool_registry.cpp
     src/runtime/intelligence_bus.cpp
@@ -75,4 +76,8 @@ if(SWARX_BUILD_TESTS)
     add_executable(swarx-knowledge-tests tests/knowledge_smoke.cpp)
     target_link_libraries(swarx-knowledge-tests PRIVATE swarx_core)
     add_test(NAME swarx-knowledge-tests COMMAND swarx-knowledge-tests)
+
+    add_executable(swarx-source-trust-tests tests/source_trust_smoke.cpp)
+    target_link_libraries(swarx-source-trust-tests PRIVATE swarx_core)
+    add_test(NAME swarx-source-trust-tests COMMAND swarx-source-trust-tests)
 endif()
