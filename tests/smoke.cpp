@@ -57,6 +57,7 @@ int main() {
     const auto report = swarx::ModelInspector::inspect(model);
     assert(report.parameter_count > 0);
     assert(report.parameter_bytes == report.parameter_count * sizeof(float));
+    assert(report.fingerprint != 0);
     assert(report.finite);
     assert(report.warnings.empty());
     swarx::ModelInspector::validate(model);
@@ -141,6 +142,8 @@ int main() {
     swarx::TransformerModel loaded = swarx::WeightsReader::load(weights_path);
     swarx::ModelInspector::validate(loaded);
     assert(loaded.config().vocab_size == model.config().vocab_size);
+    const auto loaded_report = swarx::ModelInspector::inspect(loaded);
+    assert(loaded_report.fingerprint == report.fingerprint);
     const auto original_logits = model.next_token_logits(prompt_tokens);
     const auto loaded_logits = loaded.next_token_logits(prompt_tokens);
     assert(original_logits.shape() == loaded_logits.shape());
@@ -159,6 +162,21 @@ int main() {
     assert(session_result.stats.generated_tokens == generation_config.max_new_tokens);
     assert(session_result.tokens.size() == prompt_tokens.size() + generation_config.max_new_tokens);
     assert(session.last_stats().total_tokens == session_result.tokens.size());
+
+    const auto batch = session.generate_batch(
+        std::vector<std::string>{"alpha", "beta", "gamma"},
+        {generation_config, false});
+    assert(batch.results.size() == 3);
+    assert(batch.total_generated_tokens == 3 * generation_config.max_new_tokens);
+    assert(batch.total_prompt_tokens > 0);
+    assert(batch.elapsed_ms >= 0.0);
+    assert(batch.generated_tokens_per_second >= 0.0);
+
+    const auto token_batch = session.generate_batch(
+        std::vector<std::vector<std::uint32_t>>{{1, 2}, {3, 4, 5}},
+        {generation_config, false});
+    assert(token_batch.results.size() == 2);
+    assert(token_batch.total_generated_tokens == 2 * generation_config.max_new_tokens);
 
     session.save_weights("swarx-session-test.swarx");
     swarx::InferenceSession restored("swarx-session-test.swarx");
