@@ -3,7 +3,7 @@
 #include "swarx/inference.hpp"
 #include "swarx/model_inspector.hpp"
 
-#include <cstdint>
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,11 +29,11 @@ struct PipelineTrace {
 
 struct PipelineResult {
     InferenceResult inference;
-    ModelInspection inspection;
+    ModelReport inspection;
     PipelineTrace trace;
 };
 
-// Stable SWARX execution boundary: validation -> tokenization -> inference -> trace.
+// Stable SWARX execution boundary: input -> validation -> inference -> trace.
 class EnginePipeline {
 public:
     EnginePipeline();
@@ -43,7 +43,7 @@ public:
     const InferenceSession& session() const noexcept { return session_; }
     InferenceSession& session() noexcept { return session_; }
 
-    ModelInspection inspect() const;
+    ModelReport inspect() const;
     PipelineResult run(std::string_view prompt,
                        PipelineConfig config = {},
                        TokenCallback on_token = {},
