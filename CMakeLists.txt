@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(swarx_intelligence VERSION 0.14.0 LANGUAGES CXX)
+project(swarx_intelligence VERSION 0.15.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,6 +28,7 @@ add_library(swarx_core
     src/runtime/runtime.cpp
     src/runtime/backend.cpp
     src/runtime/quantization.cpp
+    src/runtime/serving.cpp
 )
 
 target_include_directories(swarx_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -48,4 +49,8 @@ if(SWARX_BUILD_TESTS)
     add_executable(swarx-backend-tests tests/backend_smoke.cpp)
     target_link_libraries(swarx-backend-tests PRIVATE swarx_core)
     add_test(NAME swarx-backend-tests COMMAND swarx-backend-tests)
+
+    add_executable(swarx-serving-tests tests/serving_smoke.cpp)
+    target_link_libraries(swarx-serving-tests PRIVATE swarx_core)
+    add_test(NAME swarx-serving-tests COMMAND swarx-serving-tests)
 endif()
