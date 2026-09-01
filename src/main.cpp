@@ -3,17 +3,46 @@
 #include <iostream>
 #include <string>
 
-int main() {
-    swarx::Engine engine;
+int main(int argc, char** argv) {
+    std::string model_path;
+    std::string vocab_path;
 
-    std::cout << "SWARX Intelligence v0.1.0\n";
-    std::cout << "Type a prompt, or 'exit' to quit.\n\n";
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if ((arg == "--model" || arg == "-m") && i + 1 < argc) {
+            model_path = argv[++i];
+        } else if ((arg == "--vocab" || arg == "-v") && i + 1 < argc) {
+            vocab_path = argv[++i];
+        } else if (arg == "--help" || arg == "-h") {
+            std::cout << "Usage: swarx-cli [--model path/to/model.swarx] [--vocab path/to/file.vocab]\n";
+            return 0;
+        }
+    }
+
+    swarx::Engine engine;
+    if (!vocab_path.empty()) {
+        engine.load_tokenizer_vocab(vocab_path);
+        std::cout << "Loaded tokenizer vocab: " << vocab_path << "\n";
+    }
+    if (!model_path.empty()) {
+        engine.load_model(model_path);
+        std::cout << "Loaded SWARX model: " << model_path << "\n";
+    }
+
+    std::cout << "SWARX Intelligence\n";
+    std::cout << (engine.has_model()
+                      ? "Model backend active. Type a prompt, or 'exit' to quit.\n\n"
+                      : "Bootstrap mode (no model). Type a prompt, or 'exit' to quit.\n\n");
 
     std::string prompt;
     while (std::cout << "> " && std::getline(std::cin, prompt)) {
         if (prompt == "exit" || prompt == "quit") break;
         if (prompt.empty()) continue;
-        std::cout << engine.generate(prompt) << "\n\n";
+        try {
+            std::cout << engine.generate(prompt) << "\n\n";
+        } catch (const std::exception& ex) {
+            std::cerr << "error: " << ex.what() << "\n\n";
+        }
     }
 
     return 0;
