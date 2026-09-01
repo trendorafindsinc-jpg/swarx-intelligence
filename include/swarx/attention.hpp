@@ -20,6 +20,11 @@ public:
     // The mask prevents every position from attending to future tokens.
     Tensor forward(const Tensor& input) const;
 
+    const Tensor& query_weight() const noexcept { return query_weight_; }
+    const Tensor& key_weight() const noexcept { return key_weight_; }
+    const Tensor& value_weight() const noexcept { return value_weight_; }
+    const Tensor& output_weight() const noexcept { return output_weight_; }
+
 private:
     AttentionConfig config_;
     Tensor query_weight_;
