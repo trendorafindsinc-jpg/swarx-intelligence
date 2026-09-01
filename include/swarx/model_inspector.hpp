@@ -3,6 +3,7 @@
 #include "swarx/model.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,7 @@ struct ModelReport {
     std::size_t max_sequence_length = 0;
     std::size_t parameter_count = 0;
     std::size_t parameter_bytes = 0;
+    std::uint64_t fingerprint = 0;
     bool finite = true;
     std::vector<std::string> warnings;
 };
