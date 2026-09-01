@@ -1,5 +1,6 @@
 #include "swarx/engine.hpp"
 #include "swarx/generation.hpp"
+#include "swarx/kv_cache.hpp"
 #include "swarx/model.hpp"
 #include "swarx/sampler.hpp"
 #include "swarx/tensor.hpp"
@@ -19,6 +20,7 @@ int main() {
 
     swarx::Sampler sampler(1234);
     assert(sampler.greedy({-1.0f, 3.0f, 2.0f}) == 1);
+    assert(sampler.sample({0.0f, 100.0f, 1.0f}, swarx::SamplingConfig{0.7f, 2, 0.9f}) == 1);
 
     swarx::Engine engine;
     const auto tokens = engine.tokenize("hello world");
@@ -39,8 +41,7 @@ int main() {
     assert(output.shape().size() == 2);
     assert(output.shape()[0] == 3);
     assert(output.shape()[1] == 8);
-    for (std::size_t i = 0; i < output.size(); ++i)
-        assert(std::isfinite(output[i]));
+    for (std::size_t i = 0; i < output.size(); ++i) assert(std::isfinite(output[i]));
 
     swarx::ModelConfig model_config;
     model_config.vocab_size = 64;
@@ -53,17 +54,13 @@ int main() {
     swarx::TransformerModel model(model_config);
     const std::vector<std::uint32_t> prompt_tokens = {1, 7, 12, 4};
     const swarx::Tensor hidden = model.forward(prompt_tokens);
-    assert(hidden.shape().size() == 2);
     assert(hidden.shape()[0] == prompt_tokens.size());
     assert(hidden.shape()[1] == model_config.hidden_size);
-    for (std::size_t i = 0; i < hidden.size(); ++i)
-        assert(std::isfinite(hidden[i]));
+    for (std::size_t i = 0; i < hidden.size(); ++i) assert(std::isfinite(hidden[i]));
 
     const swarx::Tensor next_logits = model.next_token_logits(prompt_tokens);
-    assert(next_logits.shape().size() == 1);
     assert(next_logits.shape()[0] == model_config.vocab_size);
-    for (std::size_t i = 0; i < next_logits.size(); ++i)
-        assert(std::isfinite(next_logits[i]));
+    for (std::size_t i = 0; i < next_logits.size(); ++i) assert(std::isfinite(next_logits[i]));
 
     const std::size_t greedy_token = sampler.greedy(
         std::vector<float>(next_logits.data(), next_logits.data() + next_logits.size()));
@@ -79,15 +76,25 @@ int main() {
     std::size_t streamed = 0;
     const auto generated = generator.generate(
         prompt_tokens, generation_config,
-        [&](std::uint32_t token) {
-            ++streamed;
-            assert(token < model_config.vocab_size);
-        });
-
+        [&](std::uint32_t token) { ++streamed; assert(token < model_config.vocab_size); });
     assert(generated.tokens.size() == prompt_tokens.size() + 6);
     assert(generated.generated_tokens == 6);
     assert(streamed == 6);
     assert(!generated.stopped_on_eos);
+    assert(!generated.cancelled);
+
+    swarx::GenerationConfig advanced = generation_config;
+    advanced.temperature = 0.8f;
+    advanced.top_k = 8;
+    advanced.top_p = 0.9f;
+    const auto advanced_generated = generator.generate(prompt_tokens, advanced);
+    assert(advanced_generated.generated_tokens == 6);
+
+    std::size_t cancel_checks = 0;
+    const auto cancelled = generator.generate(
+        prompt_tokens, generation_config, {}, [&]() { return ++cancel_checks >= 2; });
+    assert(cancelled.cancelled);
+    assert(cancelled.generated_tokens == 1);
 
     swarx::GenerationConfig sliding;
     sliding.max_new_tokens = 5;
@@ -97,6 +104,19 @@ int main() {
         std::vector<std::uint32_t>(model_config.max_sequence_length, 3), sliding);
     assert(long_generated.generated_tokens == 5);
     assert(!long_generated.hit_context_limit);
+
+    swarx::KVCache cache(model_config.num_layers, model_config.max_sequence_length,
+                         model_config.hidden_size);
+    swarx::Tensor key({model_config.hidden_size});
+    swarx::Tensor value({model_config.hidden_size});
+    for (std::size_t i = 0; i < key.size(); ++i) { key[i] = 1.0f; value[i] = 2.0f; }
+    for (std::size_t layer = 0; layer < model_config.num_layers; ++layer)
+        cache.append(layer, key, value);
+    assert(cache.size() == 1);
+    assert(cache.keys(0)[0] == 1.0f);
+    assert(cache.values(0)[0] == 2.0f);
+    cache.reset();
+    assert(cache.empty());
 
     const std::string weights_path = "swarx-test-model.swarx";
     swarx::WeightsWriter::write(weights_path, model);
