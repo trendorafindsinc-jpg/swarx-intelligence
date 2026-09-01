@@ -60,7 +60,7 @@ if(SWARX_BUILD_TESTS)
 
     add_executable(swarx-online-tests tests/online_smoke.cpp)
     target_link_libraries(swarx-online-tests PRIVATE swarx_core)
-    add_test(NAME swarx-online-tests COMMAND swarx_core)
+    add_test(NAME swarx-online-tests COMMAND swarx-online-tests)
 
     add_executable(swarx-intelligence-tests tests/intelligence_router_smoke.cpp)
     target_link_libraries(swarx-intelligence-tests PRIVATE swarx_core)
