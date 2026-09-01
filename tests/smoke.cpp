@@ -1,5 +1,6 @@
 #include "swarx/engine.hpp"
 #include "swarx/generation.hpp"
+#include "swarx/inference.hpp"
 #include "swarx/kv_cache.hpp"
 #include "swarx/model.hpp"
 #include "swarx/sampler.hpp"
@@ -140,6 +141,21 @@ int main() {
     swarx::Generator loaded_generator(loaded, 1234);
     const auto loaded_generated = loaded_generator.generate(prompt_tokens, generation_config);
     assert(loaded_generated.tokens == generated.tokens);
+
+    swarx::InferenceSession session(model);
+    assert(session.cache().layers() == model_config.num_layers);
+    assert(session.cache().capacity() == model_config.max_sequence_length);
+    assert(session.model_config().vocab_size == model_config.vocab_size);
+    const auto session_result = session.generate(prompt_tokens, {generation_config, false});
+    assert(session_result.stats.generated_tokens == generation_config.max_new_tokens);
+    assert(session_result.tokens.size() == prompt_tokens.size() + generation_config.max_new_tokens);
+    assert(session.last_stats().total_tokens == session_result.tokens.size());
+
+    session.save_weights("swarx-session-test.swarx");
+    swarx::InferenceSession restored("swarx-session-test.swarx");
+    assert(restored.model_config().hidden_size == model_config.hidden_size);
+    assert(restored.cache().capacity() == model_config.max_sequence_length);
+    std::remove("swarx-session-test.swarx");
 
     std::remove(weights_path.c_str());
     return 0;
