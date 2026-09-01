@@ -46,7 +46,8 @@ OnlineInformationGateway::OnlineInformationGateway(OnlineConfig config)
     : config_(std::move(config)) {}
 
 OnlineResult OnlineInformationGateway::fetch_url(const std::string& source_id,
-                                                   const std::string& url) const {
+                                                   const std::string& url,
+                                                   const SourcePolicy& policy) const {
     OnlineResult result;
     result.source_id = source_id;
     result.source.source_id = source_id;
@@ -65,6 +66,23 @@ OnlineResult OnlineInformationGateway::fetch_url(const std::string& source_id,
         result.error = response.error.empty() ? "online source request failed" : response.error;
         return result;
     }
+
+    result.evidence.source_id = source_id;
+    result.evidence.url = url;
+    result.evidence.kind = classify_source(source_id);
+    result.evidence.trust = trust_level(result.evidence.kind);
+    result.evidence.trust_score = trust_score(result.evidence.kind);
+    result.evidence.retrieved_at_utc = result.source.retrieved_at_utc;
+    result.evidence.status_code = response.status_code;
+    result.evidence.content_type = result.source.content_type;
+    result.evidence.content = response.body;
+    result.evidence_accepted = accepts_evidence(result.evidence, policy);
+
+    if (!result.evidence_accepted) {
+        result.error = "online evidence rejected by source policy";
+        return result;
+    }
+
     result.success = true;
     result.answer_hint = "Fresh information retrieved from " + source_id + ".";
     return result;
@@ -75,14 +93,14 @@ OnlineResult OnlineInformationGateway::fetch(const OnlineRequest& request) const
         case OnlineIntent::Trendora: {
             auto url = config_.trendora_endpoint;
             if (!request.query.empty()) url = append_query(url, "search", request.query);
-            return fetch_url("trendorafinds", url);
+            return fetch_url("trendorafinds", url, request.source_policy);
         }
         case OnlineIntent::Time: {
             if (request.timezone.empty()) {
                 return {false, "timeapi", {}, "timezone cannot be empty", {}};
             }
             auto url = append_query(config_.time_endpoint, "timeZone", request.timezone);
-            return fetch_url("timeapi", url);
+            return fetch_url("timeapi", url, request.source_policy);
         }
         case OnlineIntent::Weather: {
             if (request.latitude < -90.0 || request.latitude > 90.0 ||
@@ -95,18 +113,18 @@ OnlineResult OnlineInformationGateway::fetch(const OnlineRequest& request) const
             url = append_query(url, "daily", "temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,sunrise,sunset");
             url = append_query(url, "forecast_days", "7");
             if (!request.timezone.empty()) url = append_query(url, "timezone", request.timezone);
-            return fetch_url("open-meteo", url);
+            return fetch_url("open-meteo", url, request.source_policy);
         }
         case OnlineIntent::General: {
             if (request.query.empty()) return {false, "wikipedia", {}, "general query cannot be empty", {}};
             auto url = config_.wikipedia_endpoint + "/" + url_encode(request.query);
-            return fetch_url("wikipedia", url);
+            return fetch_url("wikipedia", url, request.source_policy);
         }
         case OnlineIntent::Custom:
             if (request.custom_url.empty()) {
                 return {false, "custom", {}, "custom URL cannot be empty", {}};
             }
-            return fetch_url("custom", request.custom_url);
+            return fetch_url("custom", request.custom_url, request.source_policy);
     }
     throw std::logic_error("unknown SWARX online intent");
 }
