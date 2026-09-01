@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(swarx_intelligence VERSION 0.20.0 LANGUAGES CXX)
+project(swarx_intelligence VERSION 0.21.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -37,6 +37,7 @@ add_library(swarx_core
     src/runtime/intelligence_bus.cpp
     src/runtime/knowledge.cpp
     src/runtime/online_orchestrator.cpp
+    src/runtime/evidence.cpp
 )
 
 target_include_directories(swarx_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -85,4 +86,8 @@ if(SWARX_BUILD_TESTS)
     add_executable(swarx-online-orchestrator-tests tests/online_orchestrator_smoke.cpp)
     target_link_libraries(swarx-online-orchestrator-tests PRIVATE swarx_core)
     add_test(NAME swarx-online-orchestrator-tests COMMAND swarx-online-orchestrator-tests)
+
+    add_executable(swarx-evidence-tests tests/evidence_smoke.cpp)
+    target_link_libraries(swarx-evidence-tests PRIVATE swarx_core)
+    add_test(NAME swarx-evidence-tests COMMAND swarx-evidence-tests)
 endif()
