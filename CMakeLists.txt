@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(swarx_intelligence VERSION 0.23.0 LANGUAGES CXX)
+project(swarx_intelligence VERSION 0.24.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -15,7 +15,7 @@ add_library(swarx_core
     src/runtime/serving.cpp src/runtime/web.cpp src/runtime/online.cpp src/runtime/source_trust.cpp
     src/runtime/intelligence_router.cpp src/runtime/tool_registry.cpp src/runtime/intelligence_bus.cpp
     src/runtime/knowledge.cpp src/runtime/online_orchestrator.cpp src/runtime/evidence.cpp
-    src/runtime/research.cpp src/runtime/source_registry.cpp
+    src/runtime/research.cpp src/runtime/source_registry.cpp src/runtime/source_adapters.cpp
 )
 target_include_directories(swarx_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(swarx_core PUBLIC cxx_std_20)
@@ -64,4 +64,7 @@ if(SWARX_BUILD_TESTS)
     add_executable(swarx-source-registry-tests tests/source_registry_smoke.cpp)
     target_link_libraries(swarx-source-registry-tests PRIVATE swarx_core)
     add_test(NAME swarx-source-registry-tests COMMAND swarx-source-registry-tests)
+    add_executable(swarx-source-adapter-tests tests/source_adapters_smoke.cpp)
+    target_link_libraries(swarx-source-adapter-tests PRIVATE swarx_core)
+    add_test(NAME swarx-source-adapter-tests COMMAND swarx-source-adapter-tests)
 endif()
