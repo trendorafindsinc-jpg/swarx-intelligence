@@ -2,7 +2,6 @@
 
 #include <array>
 #include <cerrno>
-#include <cstdio>
 #include <cstring>
 #include <sstream>
 #include <sys/types.h>
@@ -10,32 +9,6 @@
 #include <unistd.h>
 
 namespace swarx {
-namespace {
-
-bool write_all(int fd, const std::string& data) {
-    std::size_t offset = 0;
-    while (offset < data.size()) {
-        const auto n = ::write(fd, data.data() + offset, data.size() - offset);
-        if (n < 0) {
-            if (errno == EINTR) continue;
-            return false;
-        }
-        offset += static_cast<std::size_t>(n);
-    }
-    return true;
-}
-
-std::string shell_safe(const std::string& value) {
-    std::string out = "'";
-    for (char c : value) {
-        if (c == '\'') out += "'\\''";
-        else out += c;
-    }
-    out += "'";
-    return out;
-}
-
-} // namespace
 
 HttpResponse HttpClient::get(const HttpRequest& request) const {
     HttpResponse response;
