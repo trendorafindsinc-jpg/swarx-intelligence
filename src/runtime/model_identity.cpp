@@ -39,7 +39,8 @@ void add_tensor(Fnv1a64& h, const Tensor& tensor, std::size_t& count,
     count += tensor.size();
     bytes += tensor.size() * sizeof(float);
     h.value(tensor.size());
-    if (!tensor.empty()) h.bytes(tensor.data(), tensor.size() * sizeof(float));
+    // Tensor::data() is safe to pass with size zero; there is no Tensor::empty().
+    if (tensor.size() != 0) h.bytes(tensor.data(), tensor.size() * sizeof(float));
 }
 
 } // namespace
