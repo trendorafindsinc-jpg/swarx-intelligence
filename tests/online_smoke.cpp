@@ -11,25 +11,23 @@ int main() {
 
     OnlineRequest weather;
     weather.intent = OnlineIntent::Weather;
-    weather.latitude = 6.5244;
+    weather.latitude = 100.0;
     weather.longitude = 3.3792;
     weather.timezone = "Africa/Lagos";
-
-    // Structural validation must work without network access.
-    weather.latitude = 100.0;
     const auto invalid = gateway.fetch(weather);
     assert(!invalid.success);
     assert(invalid.error.find("invalid latitude") != std::string::npos);
 
-    OnlineRequest time;
-    time.intent = OnlineIntent::Time;
-    time.timezone = "Africa/Lagos";
-    const auto valid_time_request = gateway.fetch(time);
-    // Network smoke is opt-in so CI/offline builds remain deterministic.
+    // Network access is deliberately opt-in. Normal test runs never spend
+    // the developer's mobile data or depend on an external service.
     if (std::getenv("SWARX_RUN_ONLINE_TESTS") != nullptr) {
-        assert(valid_time_request.success);
-        assert(!valid_time_request.source.body.empty());
-        assert(valid_time_request.source.status_code == 200);
+        OnlineRequest time;
+        time.intent = OnlineIntent::Time;
+        time.timezone = "Africa/Lagos";
+        const auto live = gateway.fetch(time);
+        assert(live.success);
+        assert(!live.source.body.empty());
+        assert(live.source.status_code == 200);
     }
 
     OnlineRequest custom;
