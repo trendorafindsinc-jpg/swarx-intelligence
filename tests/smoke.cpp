@@ -4,10 +4,13 @@
 #include "swarx/sampler.hpp"
 #include "swarx/tensor.hpp"
 #include "swarx/transformer.hpp"
+#include "swarx/weights.hpp"
 
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
+#include <string>
 #include <vector>
 
 int main() {
@@ -66,8 +69,6 @@ int main() {
         std::vector<float>(next_logits.data(), next_logits.data() + next_logits.size()));
     assert(greedy_token < model_config.vocab_size);
 
-    // Autoregressive generation: the runtime must produce real token ids and
-    // invoke the streaming callback once per generated token.
     swarx::GenerationConfig generation_config;
     generation_config.max_new_tokens = 6;
     generation_config.temperature = 0.0f;
@@ -88,7 +89,6 @@ int main() {
     assert(streamed == 6);
     assert(!generated.stopped_on_eos);
 
-    // Context sliding keeps generation valid after the model context fills.
     swarx::GenerationConfig sliding;
     sliding.max_new_tokens = 5;
     sliding.temperature = 0.0f;
@@ -97,6 +97,20 @@ int main() {
         std::vector<std::uint32_t>(model_config.max_sequence_length, 3), sliding);
     assert(long_generated.generated_tokens == 5);
     assert(!long_generated.hit_context_limit);
+
+    // Native SWARX model-container v1: write metadata, then inspect it without
+    // requiring a heavyweight external model format or network download.
+    const std::string weights_path = "swarx-test-model.swarx";
+    swarx::WeightsWriter::write(weights_path, model);
+    const auto info = swarx::WeightsReader::inspect(weights_path);
+    assert(info.tensor_count == 0);
+    assert(info.config.vocab_size == model_config.vocab_size);
+    assert(info.config.hidden_size == model_config.hidden_size);
+    assert(info.config.intermediate_size == model_config.intermediate_size);
+    assert(info.config.num_heads == model_config.num_heads);
+    assert(info.config.num_layers == model_config.num_layers);
+    assert(info.config.max_sequence_length == model_config.max_sequence_length);
+    std::remove(weights_path.c_str());
 
     return 0;
 }
