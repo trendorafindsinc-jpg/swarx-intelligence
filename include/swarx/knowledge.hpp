@@ -1,6 +1,7 @@
 #pragma once
 
 #include "swarx/online.hpp"
+#include "swarx/source_registry.hpp"
 
 #include <cstddef>
 #include <string>
@@ -70,13 +71,15 @@ public:
 
     KnowledgeResult retrieve(const KnowledgeQuery& query) const;
     const std::vector<KnowledgeSource>& sources() const noexcept { return sources_; }
+    const SourceRegistry& source_registry() const noexcept { return registry_; }
 
 private:
     KnowledgeDomain classify_domain(const std::string& text) const;
-    KnowledgeResult retrieve_online(const KnowledgeQuery& query, OnlineIntent intent) const;
+    KnowledgeResult retrieve_online(const KnowledgeQuery& query, SourceCapability capability) const;
+    static KnowledgeRoute route_for_capability(SourceCapability capability);
 
     KnowledgeFabricConfig config_;
-    OnlineInformationGateway online_;
+    SourceRegistry registry_;
     std::vector<KnowledgeSource> sources_;
 };
 
