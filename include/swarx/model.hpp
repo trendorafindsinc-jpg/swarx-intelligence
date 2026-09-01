@@ -33,6 +33,12 @@ public:
     // Full forward pass for one next-token prediction.
     Tensor next_token_logits(const std::vector<std::uint32_t>& tokens) const;
 
+    const Tensor& token_embedding() const noexcept { return token_embedding_; }
+    const Tensor& position_embedding() const noexcept { return position_embedding_; }
+    const Tensor& final_norm_weight() const noexcept { return final_norm_weight_; }
+    const Tensor& lm_head() const noexcept { return lm_head_; }
+    const std::vector<TransformerBlock>& blocks() const noexcept { return blocks_; }
+
 private:
     ModelConfig config_;
     Tensor token_embedding_;
