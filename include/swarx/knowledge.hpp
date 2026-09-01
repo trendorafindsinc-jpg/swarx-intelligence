@@ -9,14 +9,25 @@
 namespace swarx {
 
 enum class KnowledgeDomain { General, Finance, Education, Market, Product };
-
 enum class Freshness { Unknown, Stale, Recent, Live };
+
+enum class KnowledgeRoute {
+    TrendoraFinds,
+    Time,
+    Weather,
+    GeneralWeb,
+};
 
 struct KnowledgeQuery {
     std::string text;
     KnowledgeDomain domain = KnowledgeDomain::General;
     bool require_fresh = false;
     std::size_t max_sources = 3;
+    KnowledgeRoute route = KnowledgeRoute::TrendoraFinds;
+    std::string location;
+    double latitude = 0.0;
+    double longitude = 0.0;
+    std::string timezone = "UTC";
 };
 
 struct KnowledgeSource {
@@ -42,6 +53,7 @@ struct KnowledgeResult {
     bool success = false;
     std::string error;
     std::string query;
+    KnowledgeRoute route = KnowledgeRoute::TrendoraFinds;
     std::vector<KnowledgeEvidence> evidence;
 };
 
@@ -61,7 +73,7 @@ public:
 
 private:
     KnowledgeDomain classify_domain(const std::string& text) const;
-    KnowledgeResult retrieve_trendorafinds(const KnowledgeQuery& query) const;
+    KnowledgeResult retrieve_online(const KnowledgeQuery& query, OnlineIntent intent) const;
 
     KnowledgeFabricConfig config_;
     OnlineInformationGateway online_;
