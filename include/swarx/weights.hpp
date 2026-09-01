@@ -7,7 +7,7 @@
 namespace swarx {
 
 inline constexpr std::uint32_t kWeightsMagic = 0x53574152u; // "SWAR"
-inline constexpr std::uint32_t kWeightsVersion = 1;
+inline constexpr std::uint32_t kWeightsVersion = 2;
 
 struct WeightsFileInfo {
     ModelConfig config{};
@@ -22,6 +22,7 @@ public:
 class WeightsReader {
 public:
     static WeightsFileInfo inspect(const std::string& path);
+    static TransformerModel load(const std::string& path);
 };
 
 } // namespace swarx
