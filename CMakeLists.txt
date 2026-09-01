@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(swarx_intelligence VERSION 0.1.0 LANGUAGES CXX)
+project(swarx_intelligence VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,6 +10,7 @@ option(SWARX_BUILD_CLI "Build the swarx-cli executable" ON)
 
 add_library(swarx_core
     src/core/tensor.cpp
+    src/core/tensor_ops.cpp
     src/core/tokenizer.cpp
     src/core/sampler.cpp
     src/runtime/engine.cpp
