@@ -1,6 +1,7 @@
 #include "swarx/inference.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <stdexcept>
 #include <utility>
 
@@ -89,6 +90,50 @@ InferenceResult InferenceSession::generate(const std::vector<TokenId>& prompt_to
     output.text = tokenizer_.decode(output.tokens);
     output.stats = last_stats_;
     return output;
+}
+
+BatchInferenceResult InferenceSession::generate_batch(
+    const std::vector<std::string>& prompts, InferenceConfig config) {
+    BatchInferenceResult batch;
+    const auto start = std::chrono::steady_clock::now();
+    batch.results.reserve(prompts.size());
+
+    for (const auto& prompt : prompts) {
+        auto result = generate(prompt, config);
+        batch.total_prompt_tokens += result.stats.prompt_tokens;
+        batch.total_generated_tokens += result.stats.generated_tokens;
+        batch.results.push_back(std::move(result));
+    }
+
+    const auto end = std::chrono::steady_clock::now();
+    batch.elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();
+    batch.generated_tokens_per_second =
+        batch.elapsed_ms > 0.0
+            ? (1000.0 * batch.total_generated_tokens / batch.elapsed_ms)
+            : 0.0;
+    return batch;
+}
+
+BatchInferenceResult InferenceSession::generate_batch(
+    const std::vector<std::vector<TokenId>>& prompts, InferenceConfig config) {
+    BatchInferenceResult batch;
+    const auto start = std::chrono::steady_clock::now();
+    batch.results.reserve(prompts.size());
+
+    for (const auto& prompt : prompts) {
+        auto result = generate(prompt, config);
+        batch.total_prompt_tokens += result.stats.prompt_tokens;
+        batch.total_generated_tokens += result.stats.generated_tokens;
+        batch.results.push_back(std::move(result));
+    }
+
+    const auto end = std::chrono::steady_clock::now();
+    batch.elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();
+    batch.generated_tokens_per_second =
+        batch.elapsed_ms > 0.0
+            ? (1000.0 * batch.total_generated_tokens / batch.elapsed_ms)
+            : 0.0;
+    return batch;
 }
 
 } // namespace swarx
