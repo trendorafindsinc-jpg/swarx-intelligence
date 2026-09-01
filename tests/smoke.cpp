@@ -3,6 +3,7 @@
 #include "swarx/inference.hpp"
 #include "swarx/kv_cache.hpp"
 #include "swarx/model.hpp"
+#include "swarx/model_identity.hpp"
 #include "swarx/model_inspector.hpp"
 #include "swarx/sampler.hpp"
 #include "swarx/tensor.hpp"
@@ -61,6 +62,13 @@ int main() {
     assert(report.finite);
     assert(report.warnings.empty());
     swarx::ModelInspector::validate(model);
+
+    const auto identity = swarx::ModelIdentityProvider::identify(model);
+    assert(identity.algorithm == "fnv1a64");
+    assert(identity.fingerprint.size() == 16);
+    assert(identity.parameter_count == report.parameter_count);
+    assert(identity.parameter_bytes == report.parameter_bytes);
+    assert(identity.fingerprint == swarx::ModelIdentityProvider::fingerprint(model));
 
     const std::vector<std::uint32_t> prompt_tokens = {1, 7, 12, 4};
     const swarx::Tensor hidden = model.forward(prompt_tokens);
@@ -144,6 +152,7 @@ int main() {
     assert(loaded.config().vocab_size == model.config().vocab_size);
     const auto loaded_report = swarx::ModelInspector::inspect(loaded);
     assert(loaded_report.fingerprint == report.fingerprint);
+    assert(swarx::ModelIdentityProvider::fingerprint(loaded) == identity.fingerprint);
     const auto original_logits = model.next_token_logits(prompt_tokens);
     const auto loaded_logits = loaded.next_token_logits(prompt_tokens);
     assert(original_logits.shape() == loaded_logits.shape());
