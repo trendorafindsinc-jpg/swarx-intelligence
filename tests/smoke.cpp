@@ -3,6 +3,7 @@
 #include "swarx/inference.hpp"
 #include "swarx/kv_cache.hpp"
 #include "swarx/model.hpp"
+#include "swarx/model_inspector.hpp"
 #include "swarx/sampler.hpp"
 #include "swarx/tensor.hpp"
 #include "swarx/transformer.hpp"
@@ -53,6 +54,13 @@ int main() {
     model_config.max_sequence_length = 32;
 
     swarx::TransformerModel model(model_config);
+    const auto report = swarx::ModelInspector::inspect(model);
+    assert(report.parameter_count > 0);
+    assert(report.parameter_bytes == report.parameter_count * sizeof(float));
+    assert(report.finite);
+    assert(report.warnings.empty());
+    swarx::ModelInspector::validate(model);
+
     const std::vector<std::uint32_t> prompt_tokens = {1, 7, 12, 4};
     const swarx::Tensor hidden = model.forward(prompt_tokens);
     assert(hidden.shape()[0] == prompt_tokens.size());
@@ -131,6 +139,7 @@ int main() {
     assert(info.config.max_sequence_length == model_config.max_sequence_length);
 
     swarx::TransformerModel loaded = swarx::WeightsReader::load(weights_path);
+    swarx::ModelInspector::validate(loaded);
     assert(loaded.config().vocab_size == model.config().vocab_size);
     const auto original_logits = model.next_token_logits(prompt_tokens);
     const auto loaded_logits = loaded.next_token_logits(prompt_tokens);
