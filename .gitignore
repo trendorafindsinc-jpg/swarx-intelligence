@@ -1,0 +1,10 @@
+build/
+.cache/
+.vscode/
+.idea/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+.DS_Store
