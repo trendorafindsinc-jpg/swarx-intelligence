@@ -6,17 +6,18 @@
 int main() {
     using namespace swarx;
 
-    auto adapters = make_default_source_adapters();
-    assert(!adapters.empty());
+    const auto registry = make_default_source_registry();
+    const auto& sources = registry.sources();
+    assert(!sources.empty());
 
     bool found_trendora = false;
     bool found_time = false;
     bool found_weather = false;
     bool found_general = false;
 
-    for (const auto& adapter : adapters) {
-        assert(adapter != nullptr);
-        const auto id = adapter->source_id();
+    for (const auto& source : sources) {
+        assert(source != nullptr);
+        const auto& id = source->id();
         if (id == "trendorafinds") found_trendora = true;
         if (id == "timeapi") found_time = true;
         if (id == "open-meteo") found_weather = true;
