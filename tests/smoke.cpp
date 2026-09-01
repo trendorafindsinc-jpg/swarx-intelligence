@@ -1,3 +1,4 @@
+#include "swarx/chat.hpp"
 #include "swarx/engine.hpp"
 #include "swarx/generation.hpp"
 #include "swarx/inference.hpp"
@@ -192,6 +193,37 @@ int main() {
     assert(restored.model_config().hidden_size == model_config.hidden_size);
     assert(restored.cache().capacity() == model_config.max_sequence_length);
     std::remove("swarx-session-test.swarx");
+
+    // Native conversational runtime: role formatting, persistent history,
+    // system identity, streaming and bounded history all share the same core.
+    swarx::ChatSession chat(model);
+    chat.set_system_prompt("You are SWARX, a concise and helpful AI assistant.");
+    swarx::ChatConfig chat_config;
+    chat_config.inference.generation = generation_config;
+    chat_config.inference.prepend_bos = false;
+    chat_config.max_history_messages = 4;
+
+    std::size_t chat_streamed = 0;
+    const auto first_reply = chat.send(
+        "Hello SWARX", chat_config, [&](std::uint32_t token) {
+            ++chat_streamed;
+            assert(token < model_config.vocab_size);
+        });
+    assert(first_reply.message.role == swarx::ChatRole::Assistant);
+    assert(!first_reply.message.content.empty());
+    assert(first_reply.inference.stats.generated_tokens == generation_config.max_new_tokens);
+    assert(chat_streamed == generation_config.max_new_tokens);
+    assert(chat.history().size() == 2);
+
+    const auto second_reply = chat.send("Remember our conversation.", chat_config);
+    assert(second_reply.message.role == swarx::ChatRole::Assistant);
+    assert(chat.history().size() == 4);
+
+    chat.clear();
+    assert(chat.history().empty());
+    assert(chat.inference().cache().empty());
+    chat.set_system_prompt("SWARX runtime test identity.");
+    assert(chat.system_prompt().find("SWARX") != std::string::npos);
 
     std::remove(weights_path.c_str());
     return 0;
