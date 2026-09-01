@@ -8,6 +8,8 @@
 
 namespace swarx {
 
+class WeightsReader;
+
 struct ModelConfig {
     std::size_t vocab_size = 512;
     std::size_t hidden_size = 64;
@@ -23,14 +25,8 @@ public:
     explicit TransformerModel(ModelConfig config = {});
 
     const ModelConfig& config() const noexcept { return config_; }
-
-    // Converts token ids into final hidden states. Shape: [sequence, hidden].
     Tensor forward(const std::vector<std::uint32_t>& tokens) const;
-
-    // Produces next-token logits. Shape: [vocab_size].
     Tensor logits(const Tensor& hidden_state) const;
-
-    // Full forward pass for one next-token prediction.
     Tensor next_token_logits(const std::vector<std::uint32_t>& tokens) const;
 
     const Tensor& token_embedding() const noexcept { return token_embedding_; }
@@ -40,6 +36,7 @@ public:
     const std::vector<TransformerBlock>& blocks() const noexcept { return blocks_; }
 
 private:
+    friend class WeightsReader;
     ModelConfig config_;
     Tensor token_embedding_;
     Tensor position_embedding_;
