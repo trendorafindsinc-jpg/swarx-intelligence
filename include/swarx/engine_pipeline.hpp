@@ -24,6 +24,7 @@ struct PipelineTrace {
     bool model_valid = false;
     bool cancelled = false;
     bool stopped_on_eos = false;
+    bool hit_context_limit = false;
     std::vector<std::string> stages;
 };
 
