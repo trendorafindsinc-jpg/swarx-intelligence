@@ -10,12 +10,15 @@ namespace swarx {
 
 class WeightsReader;
 
+// Canonical SWARX-0.1 foundation dimensions. The weights reader still accepts
+// dimensions serialized in the artifact, so these defaults only define the
+// model constructed without a checkpoint.
 struct ModelConfig {
-    std::size_t vocab_size = 512;
-    std::size_t hidden_size = 64;
-    std::size_t intermediate_size = 256;
-    std::size_t num_heads = 4;
-    std::size_t num_layers = 4;
+    std::size_t vocab_size = 8192;
+    std::size_t hidden_size = 512;
+    std::size_t intermediate_size = 2048;
+    std::size_t num_heads = 8;
+    std::size_t num_layers = 8;
     std::size_t max_sequence_length = 2048;
     float rms_epsilon = 1e-5f;
 };
