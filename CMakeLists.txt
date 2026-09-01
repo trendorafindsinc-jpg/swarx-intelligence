@@ -44,4 +44,8 @@ if(SWARX_BUILD_TESTS)
     add_executable(swarx-smoke-tests tests/smoke.cpp)
     target_link_libraries(swarx-smoke-tests PRIVATE swarx_core)
     add_test(NAME swarx-smoke-tests COMMAND swarx-smoke-tests)
+
+    add_executable(swarx-backend-tests tests/backend_smoke.cpp)
+    target_link_libraries(swarx-backend-tests PRIVATE swarx_core)
+    add_test(NAME swarx-backend-tests COMMAND swarx-backend-tests)
 endif()
