@@ -1,4 +1,5 @@
 #include "swarx/engine.hpp"
+#include "swarx/generation.hpp"
 #include "swarx/model.hpp"
 #include "swarx/sampler.hpp"
 #include "swarx/tensor.hpp"
@@ -6,6 +7,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 int main() {
@@ -63,6 +65,38 @@ int main() {
     const std::size_t greedy_token = sampler.greedy(
         std::vector<float>(next_logits.data(), next_logits.data() + next_logits.size()));
     assert(greedy_token < model_config.vocab_size);
+
+    // Autoregressive generation: the runtime must produce real token ids and
+    // invoke the streaming callback once per generated token.
+    swarx::GenerationConfig generation_config;
+    generation_config.max_new_tokens = 6;
+    generation_config.temperature = 0.0f;
+    generation_config.repetition_penalty = 1.1f;
+    generation_config.slide_context = true;
+
+    swarx::Generator generator(model, 1234);
+    std::size_t streamed = 0;
+    const auto generated = generator.generate(
+        prompt_tokens, generation_config,
+        [&](std::uint32_t token) {
+            ++streamed;
+            assert(token < model_config.vocab_size);
+        });
+
+    assert(generated.tokens.size() == prompt_tokens.size() + 6);
+    assert(generated.generated_tokens == 6);
+    assert(streamed == 6);
+    assert(!generated.stopped_on_eos);
+
+    // Context sliding keeps generation valid after the model context fills.
+    swarx::GenerationConfig sliding;
+    sliding.max_new_tokens = 5;
+    sliding.temperature = 0.0f;
+    sliding.slide_context = true;
+    const auto long_generated = generator.generate(
+        std::vector<std::uint32_t>(model_config.max_sequence_length, 3), sliding);
+    assert(long_generated.generated_tokens == 5);
+    assert(!long_generated.hit_context_limit);
 
     return 0;
 }
