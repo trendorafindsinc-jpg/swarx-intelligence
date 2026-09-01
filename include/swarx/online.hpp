@@ -12,6 +12,7 @@ enum class OnlineIntent {
     Trendora,
     Time,
     Weather,
+    General,
     Custom,
 };
 
@@ -47,14 +48,15 @@ struct OnlineConfig {
         "https://trendorafinds.wordpress.com/wp-json/wp/v2/posts?per_page=10";
     std::string time_endpoint = "https://timeapi.io/api/time/current/zone";
     std::string weather_endpoint = "https://api.open-meteo.com/v1/forecast";
+    // Wikipedia's public REST endpoint gives SWARX a bounded factual fallback
+    // without making a search engine or third-party AI provider foundational.
+    std::string wikipedia_endpoint = "https://en.wikipedia.org/api/rest_v1/page/summary";
     std::size_t timeout_seconds = 8;
     std::size_t max_response_bytes = 2 * 1024 * 1024;
 };
 
-// SWARX's controlled gateway to live information. The intelligence layer can
-// ask for a capability instead of hard-coding websites throughout the model.
-// Every successful result carries provenance so product layers can disclose
-// where fresh information came from.
+// Controlled gateway to live information. The intelligence layer requests a
+// capability; source URLs remain infrastructure configuration.
 class OnlineInformationGateway {
 public:
     explicit OnlineInformationGateway(OnlineConfig config = {});
