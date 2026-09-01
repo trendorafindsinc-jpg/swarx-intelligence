@@ -1,11 +1,10 @@
 #include "swarx/model_identity.hpp"
 
-#include <cstring>
+#include <cstdint>
 #include <iomanip>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
-#include <string_view>
 
 namespace swarx {
 namespace {
