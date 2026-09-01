@@ -41,7 +41,8 @@ struct InferenceResult {
 // KV-cache capacity and generation policy behind one stable runtime boundary.
 class InferenceSession {
 public:
-    explicit InferenceSession(TransformerModel model = {});
+    InferenceSession();
+    explicit InferenceSession(TransformerModel model);
     explicit InferenceSession(const std::string& weights_path);
 
     const TransformerModel& model() const noexcept { return model_; }
