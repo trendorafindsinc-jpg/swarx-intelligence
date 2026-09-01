@@ -98,19 +98,29 @@ int main() {
     assert(long_generated.generated_tokens == 5);
     assert(!long_generated.hit_context_limit);
 
-    // Native SWARX model-container v1: write metadata, then inspect it without
-    // requiring a heavyweight external model format or network download.
     const std::string weights_path = "swarx-test-model.swarx";
     swarx::WeightsWriter::write(weights_path, model);
     const auto info = swarx::WeightsReader::inspect(weights_path);
-    assert(info.tensor_count == 0);
+    assert(info.tensor_count == 4 + 8 * model_config.num_layers);
     assert(info.config.vocab_size == model_config.vocab_size);
     assert(info.config.hidden_size == model_config.hidden_size);
     assert(info.config.intermediate_size == model_config.intermediate_size);
     assert(info.config.num_heads == model_config.num_heads);
     assert(info.config.num_layers == model_config.num_layers);
     assert(info.config.max_sequence_length == model_config.max_sequence_length);
-    std::remove(weights_path.c_str());
 
+    swarx::TransformerModel loaded = swarx::WeightsReader::load(weights_path);
+    assert(loaded.config().vocab_size == model.config().vocab_size);
+    const auto original_logits = model.next_token_logits(prompt_tokens);
+    const auto loaded_logits = loaded.next_token_logits(prompt_tokens);
+    assert(original_logits.shape() == loaded_logits.shape());
+    for (std::size_t i = 0; i < original_logits.size(); ++i)
+        assert(std::fabs(original_logits[i] - loaded_logits[i]) < 1e-6f);
+
+    swarx::Generator loaded_generator(loaded, 1234);
+    const auto loaded_generated = loaded_generator.generate(prompt_tokens, generation_config);
+    assert(loaded_generated.tokens == generated.tokens);
+
+    std::remove(weights_path.c_str());
     return 0;
 }
