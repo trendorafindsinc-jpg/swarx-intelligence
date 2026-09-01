@@ -36,6 +36,7 @@ add_library(swarx_core
     src/runtime/tool_registry.cpp
     src/runtime/intelligence_bus.cpp
     src/runtime/knowledge.cpp
+    src/runtime/online_orchestrator.cpp
 )
 
 target_include_directories(swarx_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -80,4 +81,8 @@ if(SWARX_BUILD_TESTS)
     add_executable(swarx-source-trust-tests tests/source_trust_smoke.cpp)
     target_link_libraries(swarx-source-trust-tests PRIVATE swarx_core)
     add_test(NAME swarx-source-trust-tests COMMAND swarx-source-trust-tests)
+
+    add_executable(swarx-online-orchestrator-tests tests/online_orchestrator_smoke.cpp)
+    target_link_libraries(swarx-online-orchestrator-tests PRIVATE swarx_core)
+    add_test(NAME swarx-online-orchestrator-tests COMMAND swarx-online-orchestrator-tests)
 endif()
