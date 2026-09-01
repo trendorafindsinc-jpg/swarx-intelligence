@@ -16,7 +16,8 @@ struct GenerationConfig {
     std::size_t top_k = 0;
     float top_p = 1.0f;
     float repetition_penalty = 1.0f;
-    std::uint32_t eos_token_id = 0;
+    // Matches SWARX models / SentencePiece contract: pad=0 bos=1 eos=2 unk=3
+    std::uint32_t eos_token_id = 2;
     bool stop_on_eos = false;
     bool slide_context = true;
 };
