@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 namespace swarx {
 namespace {
@@ -73,10 +74,8 @@ OnlineResult OnlineInformationGateway::fetch(const OnlineRequest& request) const
     switch (request.intent) {
         case OnlineIntent::Trendora: {
             auto url = config_.trendora_endpoint;
-            if (!request.query.empty()) {
-                url = append_query(url, "search", request.query);
-            }
-            return fetch_url("trendora", url);
+            if (!request.query.empty()) url = append_query(url, "search", request.query);
+            return fetch_url("trendorafinds", url);
         }
         case OnlineIntent::Time: {
             if (request.timezone.empty()) {
@@ -97,6 +96,11 @@ OnlineResult OnlineInformationGateway::fetch(const OnlineRequest& request) const
             url = append_query(url, "forecast_days", "7");
             if (!request.timezone.empty()) url = append_query(url, "timezone", request.timezone);
             return fetch_url("open-meteo", url);
+        }
+        case OnlineIntent::General: {
+            if (request.query.empty()) return {false, "wikipedia", {}, "general query cannot be empty", {}};
+            auto url = config_.wikipedia_endpoint + "/" + url_encode(request.query);
+            return fetch_url("wikipedia", url);
         }
         case OnlineIntent::Custom:
             if (request.custom_url.empty()) {
