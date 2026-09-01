@@ -7,6 +7,8 @@
 
 namespace swarx {
 
+class WeightsReader;
+
 struct TransformerConfig {
     std::size_t hidden_size = 64;
     std::size_t intermediate_size = 256;
@@ -17,8 +19,6 @@ struct TransformerConfig {
 class TransformerBlock {
 public:
     explicit TransformerBlock(TransformerConfig config = {});
-
-    // Runs one decoder-style transformer block over [sequence, hidden].
     Tensor forward(const Tensor& input) const;
 
     const CausalSelfAttention& attention() const noexcept { return attention_; }
@@ -28,6 +28,7 @@ public:
     const Tensor& down_weight() const noexcept { return down_weight_; }
 
 private:
+    friend class WeightsReader;
     TransformerConfig config_;
     CausalSelfAttention attention_;
     Tensor attention_norm_weight_;
