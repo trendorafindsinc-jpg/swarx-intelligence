@@ -2,7 +2,7 @@
 #include "swarx/tensor_ops.hpp"
 
 #include <cmath>
-#include <limits>
+#include <cstdint>
 #include <stdexcept>
 
 namespace swarx {
@@ -28,6 +28,31 @@ Tensor make_vector(std::size_t size, float value) {
     return out;
 }
 
+Tensor rms_norm_rows(const Tensor& input, const Tensor& weight, float epsilon) {
+    if (input.shape().size() != 2 || weight.shape().size() != 1 ||
+        input.shape()[1] != weight.shape()[0]) {
+        throw std::invalid_argument("rms_norm_rows requires [sequence, hidden] input and [hidden] weight");
+    }
+
+    const std::size_t sequence = input.shape()[0];
+    const std::size_t hidden = input.shape()[1];
+    Tensor output(input.shape());
+
+    for (std::size_t row = 0; row < sequence; ++row) {
+        float mean_square = 0.0f;
+        const std::size_t offset = row * hidden;
+        for (std::size_t col = 0; col < hidden; ++col) {
+            const float value = input[offset + col];
+            mean_square += value * value;
+        }
+        mean_square /= static_cast<float>(hidden);
+        const float scale = 1.0f / std::sqrt(mean_square + epsilon);
+        for (std::size_t col = 0; col < hidden; ++col)
+            output[offset + col] = input[offset + col] * scale * weight[col];
+    }
+    return output;
+}
+
 } // namespace
 
 TransformerModel::TransformerModel(ModelConfig config)
@@ -41,6 +66,8 @@ TransformerModel::TransformerModel(ModelConfig config)
                               1.0f / std::sqrt(static_cast<float>(config.hidden_size)))) {
     if (config_.hidden_size == 0 || config_.vocab_size == 0 || config_.num_layers == 0)
         throw std::invalid_argument("SWARX model dimensions must be non-zero");
+    if (config_.max_sequence_length == 0)
+        throw std::invalid_argument("SWARX model context length must be non-zero");
     if (config_.num_heads == 0 || config_.hidden_size % config_.num_heads != 0)
         throw std::invalid_argument("hidden_size must be divisible by num_heads");
     blocks_.reserve(config_.num_layers);
@@ -69,7 +96,7 @@ Tensor TransformerModel::forward(const std::vector<std::uint32_t>& tokens) const
     }
 
     for (const auto& block : blocks_) hidden = block.forward(hidden);
-    return rms_norm(hidden, final_norm_weight_, config_.rms_epsilon);
+    return rms_norm_rows(hidden, final_norm_weight_, config_.rms_epsilon);
 }
 
 Tensor TransformerModel::logits(const Tensor& hidden_state) const {
