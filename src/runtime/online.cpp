@@ -6,6 +6,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 
 namespace swarx {
 namespace {
@@ -38,6 +39,14 @@ std::string url_encode(std::string_view value) {
 
 std::string append_query(const std::string& base, const std::string& key, const std::string& value) {
     return base + (base.find('?') == std::string::npos ? '?' : '&') + key + '=' + url_encode(value);
+}
+
+OnlineResult validation_error(const std::string& source_id, const std::string& message) {
+    OnlineResult result;
+    result.source_id = source_id;
+    result.source.source_id = source_id;
+    result.error = message;
+    return result;
 }
 
 } // namespace
@@ -96,16 +105,14 @@ OnlineResult OnlineInformationGateway::fetch(const OnlineRequest& request) const
             return fetch_url("trendorafinds", url, request.source_policy);
         }
         case OnlineIntent::Time: {
-            if (request.timezone.empty()) {
-                return {false, "timeapi", {}, "timezone cannot be empty", {}};
-            }
+            if (request.timezone.empty()) return validation_error("timeapi", "timezone cannot be empty");
             auto url = append_query(config_.time_endpoint, "timeZone", request.timezone);
             return fetch_url("timeapi", url, request.source_policy);
         }
         case OnlineIntent::Weather: {
             if (request.latitude < -90.0 || request.latitude > 90.0 ||
                 request.longitude < -180.0 || request.longitude > 180.0) {
-                return {false, "open-meteo", {}, "invalid latitude/longitude", {}};
+                return validation_error("open-meteo", "invalid latitude/longitude");
             }
             auto url = append_query(config_.weather_endpoint, "latitude", std::to_string(request.latitude));
             url = append_query(url, "longitude", std::to_string(request.longitude));
@@ -116,14 +123,12 @@ OnlineResult OnlineInformationGateway::fetch(const OnlineRequest& request) const
             return fetch_url("open-meteo", url, request.source_policy);
         }
         case OnlineIntent::General: {
-            if (request.query.empty()) return {false, "wikipedia", {}, "general query cannot be empty", {}};
+            if (request.query.empty()) return validation_error("wikipedia", "general query cannot be empty");
             auto url = config_.wikipedia_endpoint + "/" + url_encode(request.query);
             return fetch_url("wikipedia", url, request.source_policy);
         }
         case OnlineIntent::Custom:
-            if (request.custom_url.empty()) {
-                return {false, "custom", {}, "custom URL cannot be empty", {}};
-            }
+            if (request.custom_url.empty()) return validation_error("custom", "custom URL cannot be empty");
             return fetch_url("custom", request.custom_url, request.source_policy);
     }
     throw std::logic_error("unknown SWARX online intent");
