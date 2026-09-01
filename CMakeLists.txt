@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(swarx_intelligence VERSION 0.4.0 LANGUAGES CXX)
+project(swarx_intelligence VERSION 0.5.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,10 +16,12 @@ add_library(swarx_core
     src/runtime/engine.cpp
     src/runtime/transformer.cpp
     src/runtime/attention.cpp
+    src/runtime/model.cpp
 )
 
 target_include_directories(swarx_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(swarx_core PUBLIC cxx_std_20)
+target_compile_options(swarx_core PRIVATE $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>)
 
 if(SWARX_BUILD_CLI)
     add_executable(swarx-cli src/main.cpp)
