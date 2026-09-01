@@ -17,9 +17,10 @@ public:
     std::vector<TokenId> encode(std::string_view text) const;
     std::string decode(const std::vector<TokenId>& tokens) const;
 
-    TokenId unk() const noexcept { return 0; }
+    TokenId pad() const noexcept { return 0; }
     TokenId bos() const noexcept { return 1; }
     TokenId eos() const noexcept { return 2; }
+    TokenId unk() const noexcept { return 3; }
 
 private:
     std::unordered_map<std::string, TokenId> vocabulary_;
