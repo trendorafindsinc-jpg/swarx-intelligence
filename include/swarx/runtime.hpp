@@ -5,7 +5,6 @@
 #include "swarx/model_inspector.hpp"
 
 #include <cstddef>
-#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -41,7 +40,7 @@ public:
     const RuntimeConfig& config() const noexcept { return config_; }
     const RuntimeHealth& health() const noexcept { return health_; }
     const ModelIdentity& identity() const noexcept { return identity_; }
-    const ModelInspection& inspection() const noexcept { return inspection_; }
+    const ModelReport& inspection() const noexcept { return inspection_; }
 
     void configure(RuntimeConfig config);
     void load(const std::string& weights_path);
@@ -64,7 +63,7 @@ private:
     ChatSession chat_{};
     RuntimeHealth health_{};
     ModelIdentity identity_{};
-    ModelInspection inspection_{};
+    ModelReport inspection_{};
 };
 
 } // namespace swarx
