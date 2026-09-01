@@ -1,5 +1,6 @@
 #pragma once
 
+#include "swarx/attention.hpp"
 #include "swarx/tensor.hpp"
 
 #include <cstddef>
@@ -22,7 +23,11 @@ public:
 
 private:
     TransformerConfig config_;
-    Tensor norm_weight_;
+    CausalSelfAttention attention_;
+    Tensor attention_norm_weight_;
+    Tensor mlp_norm_weight_;
+    Tensor up_weight_;
+    Tensor down_weight_;
 };
 
 } // namespace swarx
