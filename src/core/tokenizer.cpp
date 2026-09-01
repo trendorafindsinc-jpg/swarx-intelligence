@@ -1,5 +1,6 @@
 #include "swarx/tokenizer.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
