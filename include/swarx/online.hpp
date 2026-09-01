@@ -1,5 +1,6 @@
 #pragma once
 
+#include "swarx/source_trust.hpp"
 #include "swarx/web.hpp"
 
 #include <cstddef>
@@ -24,6 +25,7 @@ struct OnlineRequest {
     double longitude = 0.0;
     std::string timezone = "UTC";
     std::string custom_url;
+    SourcePolicy source_policy{};
 };
 
 struct SourceRecord {
@@ -41,6 +43,8 @@ struct OnlineResult {
     std::string answer_hint;
     std::string error;
     SourceRecord source;
+    SourceEvidence evidence;
+    bool evidence_accepted = false;
 };
 
 struct OnlineConfig {
@@ -48,8 +52,6 @@ struct OnlineConfig {
         "https://trendorafinds.wordpress.com/wp-json/wp/v2/posts?per_page=10";
     std::string time_endpoint = "https://timeapi.io/api/time/current/zone";
     std::string weather_endpoint = "https://api.open-meteo.com/v1/forecast";
-    // Wikipedia's public REST endpoint gives SWARX a bounded factual fallback
-    // without making a search engine or third-party AI provider foundational.
     std::string wikipedia_endpoint = "https://en.wikipedia.org/api/rest_v1/page/summary";
     std::size_t timeout_seconds = 8;
     std::size_t max_response_bytes = 2 * 1024 * 1024;
@@ -64,7 +66,8 @@ public:
     OnlineResult fetch(const OnlineRequest& request) const;
 
 private:
-    OnlineResult fetch_url(const std::string& source_id, const std::string& url) const;
+    OnlineResult fetch_url(const std::string& source_id, const std::string& url,
+                           const SourcePolicy& policy) const;
     OnlineConfig config_;
     HttpClient client_;
 };
