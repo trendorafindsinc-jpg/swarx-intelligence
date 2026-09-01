@@ -1,8 +1,8 @@
 #include "swarx/serving.hpp"
 
-#include <algorithm>
 #include <chrono>
 #include <stdexcept>
+#include <utility>
 
 namespace swarx {
 
@@ -34,12 +34,13 @@ void ServingRuntime::ensure_ready_locked() const {
 
 ServiceHealth ServingRuntime::health() const {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto identity = ModelIdentityProvider::identify(session_.model());
     ServiceHealth result;
     result.state = state_;
     result.state_name = state_name(state_);
     result.backend = std::string(backend().name());
-    result.model_fingerprint = ModelIdentityProvider::fingerprint(session_.model());
-    result.model_parameters = ModelIdentityProvider::identify(session_.model()).parameter_count;
+    result.model_fingerprint = identity.fingerprint;
+    result.model_parameters = identity.parameter_count;
     result.requests_served = requests_served_;
     result.failed_requests = failed_requests_;
     return result;
@@ -80,21 +81,12 @@ CompletionResponse ServingRuntime::complete(const CompletionRequest& request) {
     }
 
     try {
-        if (config_.max_prompt_tokens != 0) {
-            const auto encoded = session_.generate(request.prompt, request.inference).stats.prompt_tokens;
-            if (encoded > config_.max_prompt_tokens) {
-                ++failed_requests_;
-                throw std::length_error("completion prompt exceeds SWARX prompt limit");
-            }
-            CompletionResponse response;
-            response.request_id = next_request_id_++;
-            response.model_fingerprint = ModelIdentityProvider::fingerprint(session_.model());
-            response.stats = session_.last_stats();
-            ++requests_served_;
-            return response;
+        const auto result = session_.generate(request.prompt, request.inference);
+        if (config_.max_prompt_tokens != 0 &&
+            result.stats.prompt_tokens > config_.max_prompt_tokens) {
+            throw std::length_error("completion prompt exceeds SWARX prompt limit");
         }
 
-        const auto result = session_.generate(request.prompt, request.inference);
         CompletionResponse response;
         response.request_id = next_request_id_++;
         response.text = result.text;
