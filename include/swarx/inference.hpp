@@ -37,6 +37,14 @@ struct InferenceResult {
     RuntimeStats stats{};
 };
 
+struct BatchInferenceResult {
+    std::vector<InferenceResult> results;
+    std::size_t total_prompt_tokens = 0;
+    std::size_t total_generated_tokens = 0;
+    double elapsed_ms = 0.0;
+    double generated_tokens_per_second = 0.0;
+};
+
 // High-level SWARX-owned inference lifecycle. It keeps model state, tokenizer,
 // KV-cache capacity and generation policy behind one stable runtime boundary.
 class InferenceSession {
@@ -63,6 +71,14 @@ public:
                              InferenceConfig config = {},
                              TokenCallback on_token = {},
                              CancelCallback should_cancel = {});
+
+    BatchInferenceResult generate_batch(
+        const std::vector<std::string>& prompts,
+        InferenceConfig config = {});
+
+    BatchInferenceResult generate_batch(
+        const std::vector<std::vector<TokenId>>& prompts,
+        InferenceConfig config = {});
 
 private:
     void rebuild_runtime();
