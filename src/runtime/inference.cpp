@@ -6,6 +6,9 @@
 
 namespace swarx {
 
+InferenceSession::InferenceSession()
+    : InferenceSession(TransformerModel{}) {}
+
 InferenceSession::InferenceSession(TransformerModel model)
     : model_(std::move(model)) {
     rebuild_runtime();
