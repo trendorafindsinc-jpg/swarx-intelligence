@@ -38,7 +38,9 @@ def python_logits(models_repo: Path, checkpoint: Path, text: str, vocab_path: Pa
 
     import sentencepiece as spm
 
-    model_file = vocab_path.with_suffix(".model")
+    # The exported nano package stores tokenizer.vocab at the package root
+    # and the SentencePiece model under tokenizer/swarx-0.1-nano.model.
+    model_file = vocab_path.parent / "tokenizer" / "swarx-0.1-nano.model"
     sp = spm.SentencePieceProcessor(model_file=str(model_file))
     ids = sp.encode(text, out_type=int, add_bos=True, add_eos=False)
     input_ids = torch.tensor([ids], dtype=torch.long)
