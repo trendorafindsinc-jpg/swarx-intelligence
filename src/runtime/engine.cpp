@@ -2,6 +2,7 @@
 #include "swarx/weights.hpp"
 
 #include <sstream>
+#include <stdexcept>
 
 namespace swarx {
 
@@ -17,6 +18,16 @@ void Engine::load_tokenizer_vocab(const std::string& vocab_path) {
 
 std::vector<TokenId> Engine::tokenize(std::string_view text) const {
     return tokenizer_.encode(text);
+}
+
+std::vector<float> Engine::next_token_logits(std::string_view prompt) const {
+    if (!model_) throw std::runtime_error("next_token_logits requires a loaded model");
+
+    auto ids = tokenizer_.encode(prompt, /*add_bos=*/true, /*add_eos=*/false);
+    if (ids.empty()) ids.push_back(tokenizer_.bos());
+
+    const Tensor logits = model_->next_token_logits(ids);
+    return std::vector<float>(logits.data(), logits.data() + logits.size());
 }
 
 std::string Engine::generate(std::string_view prompt, std::size_t max_tokens) {
