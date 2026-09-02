@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import subprocess
+import sys
 from pathlib import Path
 
 import torch
@@ -15,10 +16,14 @@ DEFAULT_MODELS = ROOT.parent / "swarx-ai-models"
 
 def load_nano_module(models_repo: Path):
     path = models_repo / "scripts" / "run_nano_pipeline.py"
-    spec = importlib.util.spec_from_file_location("swarx_nano_pipeline", path)
+    module_name = "swarx_nano_pipeline"
+    spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load nano pipeline: {path}")
     module = importlib.util.module_from_spec(spec)
+    # dataclasses (Python 3.14+) expects the module to be registered while
+    # executing a dynamically loaded module.
+    sys.modules[module_name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -107,8 +112,6 @@ def main() -> int:
         max_abs = max(max_abs, case_max)
         max_mean = max(max_mean, case_mean)
 
-        # Float32 operation-order differences are expected; the threshold is
-        # intentionally tight enough to catch real runtime/weight mismatches.
         ok = case_max <= 1e-4 and case_mean <= 1e-5
         print(f"{'PASS' if ok else 'FAIL'}: {text!r} tokens={py_ids} max_abs={case_max:.8g} mean_abs={case_mean:.8g}")
         if not ok:
