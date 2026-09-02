@@ -16,8 +16,10 @@ class Tokenizer {
 public:
     Tokenizer();
 
-    // Load a SentencePiece-style .vocab file (one "piece\tscore" per line).
-    // Piece order defines token IDs. Enables SWARX-0.1-nano and later models.
+    // Load a SentencePiece .vocab file (one "piece\tscore" per line).
+    // Piece order defines token IDs. The scores are required to reproduce
+    // SentencePiece BPE merge priority without linking the full SentencePiece
+    // runtime into SWARX Intelligence.
     void load_vocab(const std::string& vocab_path);
 
     bool has_vocab() const noexcept { return !pieces_.empty(); }
@@ -41,6 +43,7 @@ private:
     // SentencePiece-compatible pieces: index == token id.
     std::vector<std::string> pieces_;
     std::unordered_map<std::string, TokenId> piece_to_id_;
+    std::vector<float> piece_scores_;
 
     std::vector<TokenId> encode_whitespace(std::string_view text) const;
     std::vector<TokenId> encode_bpe(std::string_view text) const;
