@@ -1,39 +1,106 @@
 #include "swarx/tokenizer.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace swarx {
 namespace {
 
-// SentencePiece training uses NFKC + dummy prefix; for BPE vocab pieces the
-// leading "\xE2\x96\x81" (U+2581) marks a word boundary / space.
+// SentencePiece's default text representation uses U+2581 ("▁") as the
+// escaped whitespace marker and adds a dummy marker at the start of non-empty
+// input. The tokenizer trainer currently uses SentencePiece BPE defaults.
 constexpr char kSpaceMarker[] = "\xE2\x96\x81"; // ▁
 
 std::string normalize_for_bpe(std::string_view text) {
+    if (text.empty()) return {};
+
     std::string out = kSpaceMarker;
-    for (char c : text) {
-        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
-            out += kSpaceMarker;
+    bool previous_space = false;
+    for (std::size_t i = 0; i < text.size();) {
+        const unsigned char c = static_cast<unsigned char>(text[i]);
+        std::uint32_t cp = 0;
+        std::size_t width = 1;
+        if (c < 0x80) {
+            cp = c;
+        } else if ((c & 0xE0) == 0xC0 && i + 1 < text.size()) {
+            cp = ((c & 0x1F) << 6) |
+                 (static_cast<unsigned char>(text[i + 1]) & 0x3F);
+            width = 2;
+        } else if ((c & 0xF0) == 0xE0 && i + 2 < text.size()) {
+            cp = ((c & 0x0F) << 12) |
+                 ((static_cast<unsigned char>(text[i + 1]) & 0x3F) << 6) |
+                 (static_cast<unsigned char>(text[i + 2]) & 0x3F);
+            width = 3;
+        } else if ((c & 0xF8) == 0xF0 && i + 3 < text.size()) {
+            cp = ((c & 0x07) << 18) |
+                 ((static_cast<unsigned char>(text[i + 1]) & 0x3F) << 12) |
+                 ((static_cast<unsigned char>(text[i + 2]) & 0x3F) << 6) |
+                 (static_cast<unsigned char>(text[i + 3]) & 0x3F);
+            width = 4;
         } else {
-            out.push_back(c);
+            cp = 0xFFFD;
         }
+
+        const bool is_space = cp == ' ' || cp == '\t' || cp == '\n' || cp == '\r';
+        if (is_space) {
+            // SentencePiece's default whitespace escaping preserves the
+            // whitespace run as ▁ pieces; the marker itself is the normalized
+            // representation consumed by BPE.
+            out += kSpaceMarker;
+            previous_space = true;
+        } else {
+            out.append(text.substr(i, width));
+            previous_space = false;
+        }
+        (void)previous_space;
+        i += width;
     }
     return out;
+}
+
+bool next_utf8_codepoint(std::string_view text, std::size_t& offset,
+                         std::string& out) {
+    if (offset >= text.size()) return false;
+    const std::size_t start = offset;
+    const unsigned char c = static_cast<unsigned char>(text[offset]);
+    std::size_t width = 1;
+    if (c < 0x80) {
+        width = 1;
+    } else if ((c & 0xE0) == 0xC0) {
+        width = 2;
+    } else if ((c & 0xF0) == 0xE0) {
+        width = 3;
+    } else if ((c & 0xF8) == 0xF0) {
+        width = 4;
+    } else {
+        ++offset;
+        out.assign("\xEF\xBF\xBD");
+        return true;
+    }
+    if (offset + width > text.size()) {
+        ++offset;
+        out.assign("\xEF\xBF\xBD");
+        return true;
+    }
+    out.assign(text.substr(start, width));
+    offset += width;
+    return true;
 }
 
 } // namespace
 
 Tokenizer::Tokenizer() {
-    // Bootstrap specials (IDs match the SWARX model contract).
     vocabulary_.emplace("<pad>", pad());
     vocabulary_.emplace("<bos>", bos());
     vocabulary_.emplace("<eos>", eos());
     vocabulary_.emplace("<unk>", unk());
-    vocabulary_.emplace("<s>", bos());   // SentencePiece BOS piece
-    vocabulary_.emplace("</s>", eos());  // SentencePiece EOS piece
+    vocabulary_.emplace("<s>", bos());
+    vocabulary_.emplace("</s>", eos());
     reverse_vocabulary_.emplace(pad(), "<pad>");
     reverse_vocabulary_.emplace(bos(), "<bos>");
     reverse_vocabulary_.emplace(eos(), "<eos>");
@@ -46,18 +113,30 @@ void Tokenizer::load_vocab(const std::string& vocab_path) {
 
     pieces_.clear();
     piece_to_id_.clear();
+    piece_scores_.clear();
 
     std::string line;
     while (std::getline(in, line)) {
         if (line.empty()) continue;
         const auto tab = line.find('\t');
         const std::string piece = tab == std::string::npos ? line : line.substr(0, tab);
+        float score = 0.0f;
+        if (tab != std::string::npos) {
+            try {
+                score = std::stof(line.substr(tab + 1));
+            } catch (const std::exception&) {
+                throw std::runtime_error("invalid tokenizer score in: " + vocab_path);
+            }
+        }
         const auto id = static_cast<TokenId>(pieces_.size());
         pieces_.push_back(piece);
+        piece_scores_.push_back(score);
         piece_to_id_.emplace(piece, id);
     }
     if (pieces_.size() < 4)
         throw std::runtime_error("tokenizer vocab too small: " + vocab_path);
+    if (piece_scores_.size() != pieces_.size())
+        throw std::runtime_error("tokenizer score/piece count mismatch: " + vocab_path);
 }
 
 std::size_t Tokenizer::vocab_size() const noexcept {
@@ -77,37 +156,52 @@ std::vector<TokenId> Tokenizer::encode_whitespace(std::string_view text) const {
 }
 
 std::vector<TokenId> Tokenizer::encode_bpe(std::string_view text) const {
-    // Greedy longest-match over the SentencePiece vocab. This is not a full
-    // SentencePiece runtime, but it is deterministic and shares piece IDs with
-    // the exported .vocab so SWARX-0.1-nano can be exercised end-to-end.
+    if (text.empty()) return {};
+
     const std::string normalized = normalize_for_bpe(text);
-    std::vector<TokenId> result;
-    std::size_t i = 0;
-    while (i < normalized.size()) {
-        std::size_t best_len = 0;
+
+    // SentencePiece BPE starts at Unicode character granularity, then merges
+    // the best available adjacent pair by the score of the resulting piece.
+    // This is materially different from greedy longest-vocabulary matching.
+    std::vector<TokenId> tokens;
+    std::size_t offset = 0;
+    while (offset < normalized.size()) {
+        std::string character;
+        if (!next_utf8_codepoint(normalized, offset, character)) break;
+        const auto it = piece_to_id_.find(character);
+        tokens.push_back(it == piece_to_id_.end() ? unk() : it->second);
+    }
+
+    while (tokens.size() > 1) {
+        float best_score = -1.0e30f;
+        std::size_t best_idx = tokens.size();
         TokenId best_id = unk();
-        // Cap search length to keep encode O(n * max_piece).
-        const std::size_t max_piece = 16;
-        const std::size_t limit = std::min(normalized.size() - i, max_piece);
-        for (std::size_t len = limit; len >= 1; --len) {
-            const std::string candidate = normalized.substr(i, len);
+
+        for (std::size_t i = 0; i + 1 < tokens.size(); ++i) {
+            const TokenId left = tokens[i];
+            const TokenId right = tokens[i + 1];
+            if (left >= pieces_.size() || right >= pieces_.size()) continue;
+
+            const std::string candidate = pieces_[left] + pieces_[right];
             const auto it = piece_to_id_.find(candidate);
-            if (it != piece_to_id_.end()) {
-                best_len = len;
-                best_id = it->second;
-                break;
+            if (it == piece_to_id_.end()) continue;
+
+            const TokenId merged = it->second;
+            const float score = piece_scores_[merged];
+            // Strict > preserves left-to-right tie breaking.
+            if (score > best_score) {
+                best_score = score;
+                best_idx = i;
+                best_id = merged;
             }
         }
-        if (best_len == 0) {
-            // Consume one byte as unk to avoid infinite loops on unknown chars.
-            result.push_back(unk());
-            ++i;
-        } else {
-            result.push_back(best_id);
-            i += best_len;
-        }
+
+        if (best_idx == tokens.size()) break;
+        tokens[best_idx] = best_id;
+        tokens.erase(tokens.begin() + static_cast<std::ptrdiff_t>(best_idx + 1));
     }
-    return result;
+
+    return tokens;
 }
 
 std::vector<TokenId> Tokenizer::encode(std::string_view text, bool add_bos,
@@ -136,7 +230,6 @@ std::string Tokenizer::decode(const std::vector<TokenId>& tokens,
             if (it == reverse_vocabulary_.end()) continue;
             piece = it->second;
         }
-        // Convert SentencePiece space marker back to a real space.
         if (piece.rfind(kSpaceMarker, 0) == 0) {
             if (!result.empty()) result.push_back(' ');
             result += piece.substr(sizeof(kSpaceMarker) - 1);
