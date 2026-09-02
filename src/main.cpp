@@ -6,6 +6,8 @@
 int main(int argc, char** argv) {
     std::string model_path;
     std::string vocab_path;
+    std::string tokenize_text;
+    bool tokenize_mode = false;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -13,8 +15,12 @@ int main(int argc, char** argv) {
             model_path = argv[++i];
         } else if ((arg == "--vocab" || arg == "-v") && i + 1 < argc) {
             vocab_path = argv[++i];
+        } else if (arg == "--tokenize" && i + 1 < argc) {
+            tokenize_mode = true;
+            tokenize_text = argv[++i];
         } else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: swarx-cli [--model path/to/model.swarx] [--vocab path/to/file.vocab]\n";
+            std::cout << "Usage: swarx-cli [--model path/to/model.swarx] [--vocab path/to/file.vocab]\n"
+                         "                  [--tokenize \"text\" --vocab path/to/file.vocab]\n";
             return 0;
         }
     }
@@ -22,8 +28,23 @@ int main(int argc, char** argv) {
     swarx::Engine engine;
     if (!vocab_path.empty()) {
         engine.load_tokenizer_vocab(vocab_path);
-        std::cout << "Loaded tokenizer vocab: " << vocab_path << "\n";
+        if (!tokenize_mode) {
+            std::cout << "Loaded tokenizer vocab: " << vocab_path << "\n";
+        }
     }
+
+    if (tokenize_mode) {
+        if (vocab_path.empty()) {
+            std::cerr << "error: --tokenize requires --vocab\n";
+            return 2;
+        }
+        const auto ids = engine.tokenizer().encode(tokenize_text, true, false);
+        std::cout << "TOKENS:";
+        for (const auto id : ids) std::cout << ' ' << id;
+        std::cout << '\n';
+        return 0;
+    }
+
     if (!model_path.empty()) {
         engine.load_model(model_path);
         std::cout << "Loaded SWARX model: " << model_path << "\n";
