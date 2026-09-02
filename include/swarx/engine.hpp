@@ -38,6 +38,10 @@ public:
 
     std::vector<TokenId> tokenize(std::string_view text) const;
 
+    // Return the raw next-token logits for a prompt. Intended for
+    // deterministic Python/C++ numerical compatibility validation.
+    std::vector<float> next_token_logits(std::string_view prompt) const;
+
     // If a model is loaded: real Transformer generation.
     // Otherwise: bootstrap readiness string (preserves existing smoke behavior).
     std::string generate(std::string_view prompt, std::size_t max_tokens = 0);
