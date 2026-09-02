@@ -16,11 +16,22 @@ namespace {
 // input. The tokenizer trainer currently uses SentencePiece BPE defaults.
 constexpr char kSpaceMarker[] = "\xE2\x96\x81"; // ▁
 
+bool is_whitespace_cp(std::uint32_t cp) {
+    return cp == ' ' || cp == '\t' || cp == '\n' || cp == '\r' ||
+           cp == '\f' || cp == '\v';
+}
+
 std::string normalize_for_bpe(std::string_view text) {
     if (text.empty()) return {};
 
+    // SentencePiece's default normalizer removes leading/trailing whitespace
+    // and collapses a whitespace run to one logical space before escaping it
+    // as ▁. Keeping this normalization here makes the native path agree with
+    // the Python SentencePieceProcessor without requiring the C++ library.
     std::string out = kSpaceMarker;
-    bool previous_space = false;
+    bool pending_space = false;
+    bool emitted_non_space = false;
+
     for (std::size_t i = 0; i < text.size();) {
         const unsigned char c = static_cast<unsigned char>(text[i]);
         std::uint32_t cp = 0;
@@ -46,20 +57,20 @@ std::string normalize_for_bpe(std::string_view text) {
             cp = 0xFFFD;
         }
 
-        const bool is_space = cp == ' ' || cp == '\t' || cp == '\n' || cp == '\r';
-        if (is_space) {
-            // SentencePiece's default whitespace escaping preserves the
-            // whitespace run as ▁ pieces; the marker itself is the normalized
-            // representation consumed by BPE.
-            out += kSpaceMarker;
-            previous_space = true;
+        if (is_whitespace_cp(cp)) {
+            if (emitted_non_space) pending_space = true;
         } else {
+            if (pending_space) {
+                out += kSpaceMarker;
+                pending_space = false;
+            }
             out.append(text.substr(i, width));
-            previous_space = false;
+            emitted_non_space = true;
         }
-        (void)previous_space;
         i += width;
     }
+
+    if (!emitted_non_space) return {};
     return out;
 }
 
@@ -159,17 +170,22 @@ std::vector<TokenId> Tokenizer::encode_bpe(std::string_view text) const {
     if (text.empty()) return {};
 
     const std::string normalized = normalize_for_bpe(text);
+    if (normalized.empty()) return {};
 
-    // SentencePiece BPE starts at Unicode character granularity, then merges
-    // the best available adjacent pair by the score of the resulting piece.
-    // This is materially different from greedy longest-vocabulary matching.
+    // SentencePiece BPE starts at Unicode character granularity. Unknown
+    // runs are represented by one UNK token rather than one UNK per Unicode
+    // code point; this is important for text outside the learned vocabulary.
     std::vector<TokenId> tokens;
     std::size_t offset = 0;
     while (offset < normalized.size()) {
         std::string character;
         if (!next_utf8_codepoint(normalized, offset, character)) break;
         const auto it = piece_to_id_.find(character);
-        tokens.push_back(it == piece_to_id_.end() ? unk() : it->second);
+        if (it != piece_to_id_.end()) {
+            tokens.push_back(it->second);
+        } else if (tokens.empty() || tokens.back() != unk()) {
+            tokens.push_back(unk());
+        }
     }
 
     while (tokens.size() > 1) {
@@ -181,6 +197,7 @@ std::vector<TokenId> Tokenizer::encode_bpe(std::string_view text) const {
             const TokenId left = tokens[i];
             const TokenId right = tokens[i + 1];
             if (left >= pieces_.size() || right >= pieces_.size()) continue;
+            if (left == unk() || right == unk()) continue;
 
             const std::string candidate = pieces_[left] + pieces_[right];
             const auto it = piece_to_id_.find(candidate);
@@ -188,7 +205,6 @@ std::vector<TokenId> Tokenizer::encode_bpe(std::string_view text) const {
 
             const TokenId merged = it->second;
             const float score = piece_scores_[merged];
-            // Strict > preserves left-to-right tie breaking.
             if (score > best_score) {
                 best_score = score;
                 best_idx = i;
