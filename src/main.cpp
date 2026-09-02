@@ -8,8 +8,11 @@ int main(int argc, char** argv) {
     std::string vocab_path;
     std::string tokenize_text;
     std::string logits_text;
+    std::string generate_text;
+    std::size_t max_new_tokens = 0;
     bool tokenize_mode = false;
     bool logits_mode = false;
+    bool generate_mode = false;
 
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -23,10 +26,16 @@ int main(int argc, char** argv) {
         } else if (arg == "--logits" && i + 1 < argc) {
             logits_mode = true;
             logits_text = argv[++i];
+        } else if (arg == "--generate" && i + 1 < argc) {
+            generate_mode = true;
+            generate_text = argv[++i];
+        } else if (arg == "--max-new" && i + 1 < argc) {
+            max_new_tokens = static_cast<std::size_t>(std::stoull(argv[++i]));
         } else if (arg == "--help" || arg == "-h") {
             std::cout << "Usage: swarx-cli [--model path/to/model.swarx] [--vocab path/to/file.vocab]\n"
                          "                  [--tokenize \"text\" --vocab path/to/file.vocab]\n"
-                         "                  [--logits \"text\" --model path/to/model.swarx --vocab path/to/file.vocab]\n";
+                         "                  [--logits \"text\" --model path/to/model.swarx --vocab path/to/file.vocab]\n"
+                         "                  [--generate \"text\" --max-new N --model path/to/model.swarx --vocab path/to/file.vocab]\n";
             return 0;
         }
     }
@@ -34,7 +43,7 @@ int main(int argc, char** argv) {
     swarx::Engine engine;
     if (!vocab_path.empty()) {
         engine.load_tokenizer_vocab(vocab_path);
-        if (!tokenize_mode && !logits_mode) {
+        if (!tokenize_mode && !logits_mode && !generate_mode) {
             std::cout << "Loaded tokenizer vocab: " << vocab_path << "\n";
         }
     }
@@ -53,7 +62,7 @@ int main(int argc, char** argv) {
 
     if (!model_path.empty()) {
         engine.load_model(model_path);
-        if (!logits_mode) {
+        if (!logits_mode && !generate_mode) {
             std::cout << "Loaded SWARX model: " << model_path << "\n";
         }
     }
@@ -67,6 +76,15 @@ int main(int argc, char** argv) {
         std::cout << "LOGITS:";
         for (const float value : logits) std::cout << ' ' << value;
         std::cout << '\n';
+        return 0;
+    }
+
+    if (generate_mode) {
+        if (model_path.empty() || vocab_path.empty()) {
+            std::cerr << "error: --generate requires --model and --vocab\n";
+            return 2;
+        }
+        std::cout << "GENERATED: " << engine.generate(generate_text, max_new_tokens) << '\n';
         return 0;
     }
 
