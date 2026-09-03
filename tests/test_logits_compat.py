@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import subprocess
 import sys
@@ -12,6 +13,10 @@ import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODELS = ROOT.parent / "swarx-ai-models"
+EXPECTED_MODEL_SHA256 = "f4e4317ad6f9137c45825a43cb6079fa56b7cda36c7cbed947b2519399e30675"
+EXPECTED_TOKENIZER_SHA256 = "73f38bddc6f329aa1e2e442882644e516fc4923b3b02e3004258970326f75307"
+MAX_ABS_TOLERANCE = 1e-4
+MAX_MEAN_TOLERANCE = 1e-5
 
 
 def load_nano_module(models_repo: Path):
@@ -63,6 +68,12 @@ def cpp_logits(cli: Path, model: Path, vocab: Path, text: str):
     return values
 
 
+def verify_sha256(path: Path, expected: str, label: str) -> None:
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != expected:
+        raise RuntimeError(f"{label} identity mismatch: actual={actual} expected={expected}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli", type=Path, default=ROOT / "build" / "swarx-cli")
@@ -93,11 +104,17 @@ def main() -> int:
         "café résumé",
     ]
 
+    verify_sha256(args.model, EXPECTED_MODEL_SHA256, "SWARX artifact")
+    tokenizer_model = args.vocab.parent / "tokenizer" / "swarx-0.1-nano.model"
+    verify_sha256(tokenizer_model, EXPECTED_TOKENIZER_SHA256, "Tokenizer")
+
     print("SWARX Python/C++ logits compatibility gate")
     print(f"Intelligence repo: {ROOT}")
     print(f"Models repo:       {args.models_repo}")
     print(f"Checkpoint:        {args.checkpoint}")
     print(f"SWARX artifact:    {args.model}")
+    print(f"Artifact SHA-256:  {EXPECTED_MODEL_SHA256}")
+    print(f"Tokenizer SHA-256: {EXPECTED_TOKENIZER_SHA256}")
     print(f"Cases:             {len(cases)}")
 
     max_abs = 0.0
@@ -114,13 +131,14 @@ def main() -> int:
         max_abs = max(max_abs, case_max)
         max_mean = max(max_mean, case_mean)
 
-        ok = case_max <= 1e-4 and case_mean <= 1e-5
+        ok = case_max <= MAX_ABS_TOLERANCE and case_mean <= MAX_MEAN_TOLERANCE
         print(f"{'PASS' if ok else 'FAIL'}: {text!r} tokens={py_ids} max_abs={case_max:.8g} mean_abs={case_mean:.8g}")
         if not ok:
             return 1
 
     print(f"Max absolute difference: {max_abs:.8g}")
     print(f"Max mean absolute diff:  {max_mean:.8g}")
+    print(f"Tolerance:               max_abs<={MAX_ABS_TOLERANCE:g}, mean_abs<={MAX_MEAN_TOLERANCE:g}")
     print("RESULT: PASS — Python and C++ logits match within tolerance.")
     return 0
 
