@@ -10,6 +10,7 @@ PyYAML.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+EXPECTED_TOKENIZER_SHA256 = "73f38bddc6f329aa1e2e442882644e516fc4923b3b02e3004258970326f75307"
 
 
 def load_tokenizer_class(tokenizer_py: Path):
@@ -89,6 +91,13 @@ def main() -> int:
     if not vocab.exists():
         raise FileNotFoundError(f"C++ vocab not found: {vocab}")
 
+    tokenizer_hash = hashlib.sha256(tokenizer_model.read_bytes()).hexdigest()
+    if tokenizer_hash != EXPECTED_TOKENIZER_SHA256:
+        raise RuntimeError(
+            "Tokenizer identity mismatch: "
+            f"actual={tokenizer_hash} expected={EXPECTED_TOKENIZER_SHA256}"
+        )
+
     SwarxTokenizer = load_tokenizer_class(tokenizer_py)
     tokenizer = SwarxTokenizer.load(tokenizer_model)
     failures: list[tuple[str, list[int], list[int]]] = []
@@ -98,6 +107,7 @@ def main() -> int:
     print(f"Models repo:       {models_repo}")
     print(f"Python tokenizer:  {tokenizer_model}")
     print(f"C++ vocab:         {vocab}")
+    print(f"Tokenizer SHA-256: {tokenizer_hash}")
     print(f"Cases:             {len(CASES)}")
     print()
 
