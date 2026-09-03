@@ -66,6 +66,18 @@ def run_cpp(cli: Path, vocab: Path, text: str) -> list[int]:
     return [int(value) for value in payload.split()] if payload else []
 
 
+def verify_tokenizer_identity(path: Path) -> str:
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != EXPECTED_TOKENIZER_SHA256:
+        raise RuntimeError(
+            "STALE FIXTURE: tokenizer artifact does not match the locked "
+            "SWARX-0.1-Nano identity. "
+            f"path={path} actual={actual} expected={EXPECTED_TOKENIZER_SHA256}. "
+            "Regenerate the Nano package before running the cross-engine gate."
+        )
+    return actual
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cli", type=Path, required=True, help="native swarx-cli executable")
@@ -91,13 +103,7 @@ def main() -> int:
     if not vocab.exists():
         raise FileNotFoundError(f"C++ vocab not found: {vocab}")
 
-    tokenizer_hash = hashlib.sha256(tokenizer_model.read_bytes()).hexdigest()
-    if tokenizer_hash != EXPECTED_TOKENIZER_SHA256:
-        raise RuntimeError(
-            "Tokenizer identity mismatch: "
-            f"actual={tokenizer_hash} expected={EXPECTED_TOKENIZER_SHA256}"
-        )
-
+    tokenizer_hash = verify_tokenizer_identity(tokenizer_model)
     SwarxTokenizer = load_tokenizer_class(tokenizer_py)
     tokenizer = SwarxTokenizer.load(tokenizer_model)
     failures: list[tuple[str, list[int], list[int]]] = []
