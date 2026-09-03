@@ -68,10 +68,16 @@ def cpp_logits(cli: Path, model: Path, vocab: Path, text: str):
     return values
 
 
-def verify_sha256(path: Path, expected: str, label: str) -> None:
+def verify_sha256(path: Path, expected: str, label: str) -> str:
     actual = hashlib.sha256(path.read_bytes()).hexdigest()
     if actual != expected:
-        raise RuntimeError(f"{label} identity mismatch: actual={actual} expected={expected}")
+        raise RuntimeError(
+            "STALE FIXTURE: "
+            f"{label} does not match the locked SWARX-0.1-Nano identity. "
+            f"path={path} actual={actual} expected={expected}. "
+            "Regenerate the Nano package before running the numerical gate."
+        )
+    return actual
 
 
 def main() -> int:
@@ -104,17 +110,17 @@ def main() -> int:
         "café résumé",
     ]
 
-    verify_sha256(args.model, EXPECTED_MODEL_SHA256, "SWARX artifact")
+    artifact_hash = verify_sha256(args.model, EXPECTED_MODEL_SHA256, "SWARX artifact")
     tokenizer_model = args.vocab.parent / "tokenizer" / "swarx-0.1-nano.model"
-    verify_sha256(tokenizer_model, EXPECTED_TOKENIZER_SHA256, "Tokenizer")
+    tokenizer_hash = verify_sha256(tokenizer_model, EXPECTED_TOKENIZER_SHA256, "Tokenizer")
 
     print("SWARX Python/C++ logits compatibility gate")
     print(f"Intelligence repo: {ROOT}")
     print(f"Models repo:       {args.models_repo}")
     print(f"Checkpoint:        {args.checkpoint}")
     print(f"SWARX artifact:    {args.model}")
-    print(f"Artifact SHA-256:  {EXPECTED_MODEL_SHA256}")
-    print(f"Tokenizer SHA-256: {EXPECTED_TOKENIZER_SHA256}")
+    print(f"Artifact SHA-256:  {artifact_hash}")
+    print(f"Tokenizer SHA-256: {tokenizer_hash}")
     print(f"Cases:             {len(cases)}")
 
     max_abs = 0.0
