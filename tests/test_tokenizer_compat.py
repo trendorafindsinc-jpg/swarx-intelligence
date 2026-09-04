@@ -93,8 +93,8 @@ def main() -> int:
 
     models_repo = args.models_repo.expanduser().resolve()
     tokenizer_py = models_repo / "model" / "tokenizer.py"
-    tokenizer_model = args.tokenizer or (models_repo / "tokenizer" / "swarx-0.1-nano.model")
-    vocab = args.vocab or (models_repo / "tokenizer" / "swarx-0.1-nano.vocab")
+    tokenizer_model = args.tokenizer or (models_repo / "tokenizer" / "swarx-0.1.model")
+    vocab = args.vocab or (models_repo / "tokenizer" / "swarx-0.1.vocab")
 
     if not tokenizer_py.exists():
         raise FileNotFoundError(f"Python tokenizer source not found: {tokenizer_py}")
