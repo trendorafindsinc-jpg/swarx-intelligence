@@ -2,6 +2,79 @@
 
 SWARX Intelligence is the native intelligence and inference-engine foundation for SWARX.
 
+## 🎉 Milestone achieved — SWARX-0.1-Nano VERIFIED
+
+**September 2026 — Foundation integration milestone complete.**
+
+SWARX Intelligence has successfully completed the consolidated verification of the first SWARX-owned model pipeline: **SWARX-0.1-Nano — 6/6 gates passed.**
+
+This is the first verified proof that a SWARX-owned trained model can be exported from the model repository, loaded by the native intelligence engine, executed, and verified across Python and C++.
+
+### Verification record
+
+| Gate | Result |
+|---|---:|
+| Native CTest suite | **13/13 PASS** |
+| End-to-end engine integration | **PASS** |
+| Python/C++ tokenizer compatibility | **16/16 PASS** |
+| Python/C++ logits compatibility | **6/6 PASS** |
+| Python/C++ generation compatibility | **6/6 PASS** |
+| Performance baseline | **PASS** |
+| **Consolidated verification** | **6/6 PASS** |
+
+### Verified model baseline
+
+- Model: **SWARX-0.1-Nano**
+- Architecture: decoder-only Transformer
+- Parameters: **541,312**
+- Vocabulary: **512 tokens**
+- Hidden size: **128**
+- Intermediate size: **512**
+- Layers: **2**
+- Attention heads: **4**
+- Context length: **128**
+- Export format: **SWARX v2**
+- Tensor schema: **v2**
+- Tokenizer: SentencePiece BPE
+- Locked tokenizer SHA256: `73f38bddc6f329aa1e2e442882644e516fc4923b3b02e3004258970326f75307`
+- Verified artifact SHA256: `4c9d754d095c2f20217f692c2361280dc14e72cb874efb155f82dd71cd22cbd6`
+
+### Performance baseline
+
+Process-to-process measurements, including model loading:
+
+- `hello`: mean **0.3815s**, p95 **0.3914s**
+- `budget`: mean **0.4092s**, p95 **0.4170s**
+- `I am SWARX`: mean **0.1258s**, p95 **0.1358s**
+
+### What the milestone proves
+
+```text
+swarx-ai-models
+      │
+      │  train / checkpoint / export
+      ▼
+SWARX-0.1-Nano
+      │
+      │  SWARX v2 artifact
+      ▼
+SWARX Intelligence
+      │
+      ├── tokenize
+      ├── load
+      ├── inference
+      └── generate
+      │
+      ▼
+  verification
+      │
+      └── Python ↔ C++ compatibility
+```
+
+The Nano model is deliberately tiny and is **not a production-scale LLM**. Its purpose is to establish a trustworthy native execution and compatibility baseline before the model is scaled substantially.
+
+---
+
 ## Mission
 
 Build a modular, hardware-aware intelligence runtime owned by SWARX rather than coupling the core architecture to a single third-party model or AI API.
@@ -162,9 +235,11 @@ SWARX_RUN_ONLINE_TESTS=1 ctest --test-dir build --output-on-failure
 
 ## Status
 
-This repository is an **engineering foundation, not yet a production-scale trained LLM**. The native runtime and intelligence architecture are becoming suitable for an owned, embeddable SWARX engine, but model quality still depends on trained weights and future optimized kernels/backends.
+**SWARX-0.1-Nano integration: VERIFIED — 6/6 consolidated gates passed.**
 
-The immediate engineering objective remains:
+This repository is an engineering foundation, not yet a production-scale trained LLM. The native runtime and intelligence architecture now have a verified SWARX-owned model running end-to-end. The next stage is to preserve this baseline and scale toward a substantially more capable SWARX model.
+
+The verified loop is:
 
 ```text
 MODEL
@@ -176,7 +251,7 @@ MODEL
   -> ANSWER
 ```
 
-Once a real model runs end-to-end, the next layers can safely build on the model contract, routing, memory, tools, verification and local/cloud execution.
+SWARX can now build on this verified foundation for larger models, stronger reasoning, memory, tools, routing, optimized kernels/backends and product integrations.
 
 ## SWARX ownership direction
 
