@@ -93,7 +93,7 @@ GatewayResponse ResilienceGateway::try_ember(std::string_view message) {
     try {
         auto local = ember_.chat(message);
         response.success = true;
-        response.text = std::move(local.text);
+        response.text = std::move(local.message.content);
         response.failure = GatewayFailure::None;
         response.model = ember_.identity().fingerprint;
         return response;
