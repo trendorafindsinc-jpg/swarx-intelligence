@@ -16,6 +16,7 @@ add_library(swarx_core
     src/runtime/intelligence_router.cpp src/runtime/tool_registry.cpp src/runtime/intelligence_bus.cpp
     src/runtime/knowledge.cpp src/runtime/online_orchestrator.cpp src/runtime/evidence.cpp
     src/runtime/research.cpp src/runtime/source_registry.cpp src/runtime/source_adapters.cpp
+    src/runtime/resilience_gateway.cpp
 )
 target_include_directories(swarx_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(swarx_core PUBLIC cxx_std_20)
@@ -67,4 +68,7 @@ if(SWARX_BUILD_TESTS)
     add_executable(swarx-source-adapter-tests tests/source_adapters_smoke.cpp)
     target_link_libraries(swarx-source-adapter-tests PRIVATE swarx_core)
     add_test(NAME swarx-source-adapter-tests COMMAND swarx-source-adapter-tests)
+    add_executable(swarx-resilience-gateway-tests tests/resilience_gateway_smoke.cpp)
+    target_link_libraries(swarx-resilience-gateway-tests PRIVATE swarx_core)
+    add_test(NAME swarx-resilience-gateway-tests COMMAND swarx-resilience-gateway-tests)
 endif()
