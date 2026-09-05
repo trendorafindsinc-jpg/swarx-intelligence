@@ -60,6 +60,9 @@ public:
 
     void reset() noexcept;
     void load_weights(const std::string& path);
+    void load_tokenizer_vocab(const std::string& path);
+    bool tokenizer_loaded() const noexcept { return tokenizer_.has_vocab(); }
+    std::size_t tokenizer_vocab_size() const noexcept { return tokenizer_.vocab_size(); }
     void save_weights(const std::string& path) const;
 
     InferenceResult generate(std::string_view prompt,

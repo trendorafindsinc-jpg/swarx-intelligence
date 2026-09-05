@@ -12,6 +12,7 @@ namespace swarx {
 
 struct RuntimeConfig {
     std::string system_prompt;
+    std::string tokenizer_vocab_path;
     ChatConfig chat{};
 };
 

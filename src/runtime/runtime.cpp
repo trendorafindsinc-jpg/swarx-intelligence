@@ -36,6 +36,11 @@ void Runtime::configure(RuntimeConfig config) {
 
 void Runtime::load(const std::string& weights_path) {
     chat_.inference().load_weights(weights_path);
+
+    if (!config_.tokenizer_vocab_path.empty()) {
+        chat_.inference().load_tokenizer_vocab(config_.tokenizer_vocab_path);
+    }
+
     rebuild_state();
 }
 

@@ -43,6 +43,17 @@ void InferenceSession::load_weights(const std::string& path) {
     last_stats_ = {};
 }
 
+void InferenceSession::load_tokenizer_vocab(const std::string& path) {
+    tokenizer_.load_vocab(path);
+
+    if (tokenizer_.vocab_size() != model_.config().vocab_size) {
+        throw std::runtime_error(
+            "tokenizer vocabulary size does not match SWARX model vocabulary size");
+    }
+
+    reset();
+}
+
 void InferenceSession::save_weights(const std::string& path) const {
     WeightsWriter::write(path, model_);
 }
