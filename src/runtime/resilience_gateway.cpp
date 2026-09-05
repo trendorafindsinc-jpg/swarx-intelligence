@@ -95,7 +95,7 @@ GatewayResponse ResilienceGateway::try_ember(std::string_view message) {
         response.success = true;
         response.text = std::move(local.text);
         response.failure = GatewayFailure::None;
-        response.model = ember_.identity().model_id;
+        response.model = ember_.identity().fingerprint;
         return response;
     } catch (const std::exception& ex) {
         response.failure = GatewayFailure::LocalRuntimeFailure;
@@ -105,7 +105,7 @@ GatewayResponse ResilienceGateway::try_ember(std::string_view message) {
 }
 
 GatewayResponse ResilienceGateway::chat(const IntelligenceRequest& request) {
-    const auto decision = IntelligenceRouter{} .decide(request);
+    const auto decision = IntelligenceRouter{}.decide(request);
 
     // Fresh-information requests must use the cloud path when network is
     // permitted. If that path fails, EMBER may continue the conversation but
